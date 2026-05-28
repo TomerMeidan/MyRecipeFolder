@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView, FlatList,
-  StyleSheet, Alert, ActivityIndicator, Modal, SafeAreaView,
+  StyleSheet, Alert, ActivityIndicator, Modal,
   Dimensions, GestureResponderEvent,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';

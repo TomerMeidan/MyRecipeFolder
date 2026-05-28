@@ -3,7 +3,7 @@ import { ParsedRecipe } from './recipeParser';
 import { createIngredient, createStep } from './recipe';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 30_000;
 
 // ── Model rotation list ───────────────────────────────────────────────────────
 // Ordered best-first. All confirmed free + vision on OpenRouter.
@@ -15,12 +15,15 @@ export interface ModelOption {
   hasReasoning: boolean;
 }
 
+// Ordered by test results — confirmed working models first.
+// Last verified: Nemotron 30B (823ms) and Gemma 4 31B (964ms) both pass.
+// Kimi K2.6 and Gemma 4 26B kept as fallbacks (currently 429 rate-limited but
+// may succeed at quieter times). Nemotron 12B VL removed (returns empty responses).
 export const VISION_MODELS: ModelOption[] = [
-  { id: 'moonshotai/kimi-k2.6:free',                            label: 'Kimi K2.6',              hasReasoning: false },
-  { id: 'google/gemma-4-31b-it:free',                           label: 'Gemma 4 31B',             hasReasoning: false },
   { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',   label: 'Nemotron 30B Reasoning',  hasReasoning: true  },
+  { id: 'google/gemma-4-31b-it:free',                           label: 'Gemma 4 31B',             hasReasoning: false },
+  { id: 'moonshotai/kimi-k2.6:free',                            label: 'Kimi K2.6',               hasReasoning: false },
   { id: 'google/gemma-4-26b-a4b-it:free',                       label: 'Gemma 4 26B',             hasReasoning: false },
-  { id: 'nvidia/nemotron-nano-12b-v2-vl:free',                  label: 'Nemotron 12B VL',         hasReasoning: false },
 ];
 
 // ── Progress callback ─────────────────────────────────────────────────────────
@@ -111,7 +114,6 @@ async function tryModel(
       },
       body: JSON.stringify({
         model: modelId,
-        response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           {
