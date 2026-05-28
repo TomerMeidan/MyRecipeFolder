@@ -9,12 +9,21 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Recipe, RootStackParamList } from '../types';
 import { getAllRecipes } from '../db/recipeRepository';
 import RecipeCard from '../components/RecipeCard';
+import { useTheme, ColorSchemeType } from '../theme/ThemeContext';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
+
+const SCHEME_COLORS: Array<{ key: ColorSchemeType; color: string }> = [
+  { key: 'default', color: '#E05C2D' },
+  { key: 'blue',    color: '#2563EB' },
+  { key: 'black',   color: '#0F172A' },
+  { key: 'white',   color: '#94A3B8' },
+];
 
 export default function HomeScreen() {
   const db = useDatabase();
   const navigation = useNavigation<NavProp>();
+  const { theme, isDarkMode, toggleDarkMode, colorScheme, setColorScheme } = useTheme();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,14 +43,14 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#E05C2D" />
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         data={recipes}
         keyExtractor={(item) => item.id}
@@ -52,18 +61,43 @@ export default function HomeScreen() {
           />
         )}
         contentContainerStyle={recipes.length === 0 ? styles.emptyContainer : styles.list}
-        ListHeaderComponent={<Text style={styles.heading}>My Recipes</Text>}
+        ListHeaderComponent={
+          <View>
+            <View style={styles.headingRow}>
+              <Text style={[styles.heading, { color: theme.text }]}>My Recipes</Text>
+              <TouchableOpacity
+                style={[styles.modeBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+                onPress={toggleDarkMode}
+              >
+                <Text style={styles.modeBtnIcon}>{isDarkMode ? '☀️' : '🌙'}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.schemeRow}>
+              {SCHEME_COLORS.map((s) => (
+                <TouchableOpacity
+                  key={s.key}
+                  onPress={() => setColorScheme(s.key)}
+                  style={[
+                    styles.schemeDot,
+                    { backgroundColor: s.color },
+                    colorScheme === s.key && { borderWidth: 2.5, borderColor: theme.text },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.emptyInner}>
             <Text style={styles.emptyIcon}>🍳</Text>
-            <Text style={styles.emptyTitle}>No recipes yet</Text>
-            <Text style={styles.emptySubtitle}>Tap + to add your first recipe</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>No recipes yet</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>Tap + to add your first recipe</Text>
           </View>
         }
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: theme.primary, shadowColor: theme.primary }]}
         onPress={() => navigation.navigate('AddEditRecipe', {})}
         activeOpacity={0.85}
       >
@@ -74,21 +108,43 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { paddingTop: 16, paddingBottom: 100 },
-  emptyContainer: { flex: 1, paddingTop: 16 },
-  heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1C1C1C',
+  list: { paddingTop: 8, paddingBottom: 100 },
+  emptyContainer: { flex: 1, paddingTop: 8 },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  heading: { fontSize: 28, fontWeight: '700' },
+  schemeRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginHorizontal: 16,
     marginBottom: 16,
   },
+  schemeDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  modeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeBtnIcon: { fontSize: 18 },
   emptyInner: { alignItems: 'center', marginTop: 80 },
   emptyIcon: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 20, fontWeight: '600', color: '#1C1C1C', marginBottom: 6 },
-  emptySubtitle: { fontSize: 15, color: '#888' },
+  emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 6 },
+  emptySubtitle: { fontSize: 15 },
   fab: {
     position: 'absolute',
     bottom: 28,
@@ -96,10 +152,8 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#E05C2D',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#E05C2D',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

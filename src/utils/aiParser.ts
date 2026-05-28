@@ -2,77 +2,49 @@ import { RecipeCategory } from '../types';
 import { ParsedRecipe } from './recipeParser';
 import { createIngredient, createStep } from './recipe';
 
-// Gemini 2.5 Flash — multimodal, replaces Cloud Vision OCR + Cloud Translate entirely.
-// The image is sent directly to Gemini which reads it (including handwriting) and
-// returns structured recipe data in the requested output language.
-//
-const MODEL = 'gemini-2.5-flash';
-const geminiUrl = (apiKey: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+// OpenRouter — OpenAI-compatible API aggregator with free model tier.
+// Docs: https://openrouter.ai/docs
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-const RECIPE_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    title:    { type: 'STRING' },
-    category: {
-      type: 'STRING',
-      enum: ['Pasta', 'Chicken', 'Beef', 'Fish', 'Vegetarian', 'Dessert', 'Soup', 'Salad', 'Other'],
-    },
-    ingredients: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          quantity: { type: 'STRING' },
-          unit:     { type: 'STRING' },
-          name:     { type: 'STRING' },
-        },
-        required: ['quantity', 'unit', 'name'],
-      },
-    },
-    steps: { type: 'ARRAY', items: { type: 'STRING' } },
-  },
-  required: ['title', 'category', 'ingredients', 'steps'],
-};
+// Free model that supports vision (image input).
+// Other free vision options: "meta-llama/llama-3.2-90b-vision-instruct:free"
+const MODEL = 'google/gemini-2.0-flash-exp:free';
 
-const SYSTEM_PROMPT = `You are a recipe extraction expert. You receive an image of a recipe — handwritten, printed, or photographed from a book — and extract it into structured JSON.
+const SYSTEM_PROMPT = `You are a recipe extraction expert. Given an image of a recipe (handwritten, printed, or photographed), extract the content and return ONLY a valid JSON object with this exact structure:
+
+{
+  "title": "recipe name",
+  "category": "one of: Pasta | Chicken | Beef | Fish | Vegetarian | Dessert | Soup | Salad | Other",
+  "ingredients": [
+    { "quantity": "numeric string or empty", "unit": "measurement or empty", "name": "ingredient name" }
+  ],
+  "steps": ["step 1 text", "step 2 text"]
+}
 
 Rules:
-- title: The recipe name (usually the first prominent heading).
-- category: Best match from the provided enum.
-- ingredients: Each ingredient as {quantity, unit, name}.
-  • quantity: numeric string ("2", "1/2", "200"). Empty string if none.
-  • unit: measurement word. Empty string for unitless ingredients (e.g. "3 eggs"). Use "to taste" for taste-adjusted items.
-  • name: ingredient name.
-- steps: Each preparation instruction as one complete sentence.
-  For serving/plating/tips/notes/storage sections, add "— {Section Name} —" as a separator step before those sentences.
-- Apply visual reasoning to handle difficult handwriting, OCR-like noise, multi-column layouts, and crossed-out text.`;
+- quantity: number as string ("2", "1/2", "200"). Empty string if none.
+- unit: measurement word ("cups", "tbsp", "g", "כוסות"). Empty string if none (e.g. "3 eggs"). Use "to taste" for taste-adjusted items.
+- For serving/plating/tips/notes sections, add "— {Section Name} —" as a separator step.
+- Preserve the original language of the recipe in your output unless asked to translate.
+- Apply reasoning to handle difficult handwriting, OCR-like noise, and multi-column layouts.
+- Return ONLY the JSON object — no markdown, no code fences, no explanation.`;
 
 export interface ParseOptions {
-  /** BCP-47 code or language name (e.g. "he", "Hebrew") — helps with handwriting recognition */
   sourceLanguage?: string;
-  /** Language name for output (e.g. "English", "Hebrew"). Omit to keep the recipe's original language. */
   outputLanguage?: string;
 }
 
-function buildPrompt(options: ParseOptions): string {
-  const lines = ['Extract the recipe from this image.'];
-
+function buildUserMessage(options: ParseOptions): string {
+  const parts = ['Extract the recipe from this image.'];
   if (options.sourceLanguage) {
-    lines.push(
-      `The recipe is written in ${options.sourceLanguage} — use this to accurately read the handwriting and characters.`,
-    );
+    parts.push(`The recipe is written in ${options.sourceLanguage} — use this to accurately read the handwriting.`);
   }
-
   if (options.outputLanguage) {
-    lines.push(
-      `Translate all output text (title, ingredient names, step instructions) into ${options.outputLanguage}.`,
-    );
+    parts.push(`Translate all output text (title, ingredient names, steps) into ${options.outputLanguage}.`);
   } else {
-    lines.push('Preserve the original language of the recipe in your output.');
+    parts.push('Preserve the original language in your output.');
   }
-
-  return lines.join(' ');
+  return parts.join(' ');
 }
 
 function getMimeType(uri: string, fileName?: string): string {
@@ -84,8 +56,7 @@ function getMimeType(uri: string, fileName?: string): string {
   return 'image/jpeg';
 }
 
-// On web, expo-image-picker returns base64 with a data URL prefix like
-// "data:image/jpeg;base64,/9j/..." — Gemini expects raw base64 only.
+// expo-image-picker on web returns base64 with a data URL prefix — strip it.
 function stripDataUrlPrefix(base64: string): string {
   const idx = base64.indexOf(',');
   return idx !== -1 ? base64.slice(idx + 1) : base64;
@@ -100,37 +71,45 @@ export async function parseRecipeFromImage(
 ): Promise<ParsedRecipe> {
   const mimeType = getMimeType(uri, fileName);
   const cleanBase64 = stripDataUrlPrefix(imageBase64);
+  const dataUrl = `data:${mimeType};base64,${cleanBase64}`;
 
-  const response = await fetch(geminiUrl(apiKey), {
+  const response = await fetch(OPENROUTER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://myrecipefolder.app',
+      'X-Title': 'MyRecipeFolder',
+    },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{
-        role: 'user',
-        parts: [
-          { inline_data: { mime_type: mimeType, data: cleanBase64 } },
-          { text: buildPrompt(options) },
-        ],
-      }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: RECIPE_SCHEMA,
-      },
+      model: MODEL,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: dataUrl } },
+            { type: 'text', text: buildUserMessage(options) },
+          ],
+        },
+      ],
     }),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message ?? `Gemini API error ${response.status}`);
+    const msg = err?.error?.message ?? `OpenRouter API error ${response.status}`;
+    throw new Error(msg);
   }
 
   const data = await response.json();
-  const parts: { text?: string }[] = data.candidates?.[0]?.content?.parts ?? [];
-  const textPart = parts.find((p) => p.text !== undefined);
-  if (!textPart?.text) throw new Error('No response from Gemini');
+  const content: string = data.choices?.[0]?.message?.content ?? '';
+  if (!content) throw new Error('Empty response from AI');
 
-  const parsed = JSON.parse(textPart.text);
+  // Strip accidental markdown code fences if model includes them
+  const jsonStr = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const parsed = JSON.parse(jsonStr);
 
   return {
     title:    parsed.title    ?? 'Untitled Recipe',

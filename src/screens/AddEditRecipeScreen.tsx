@@ -9,6 +9,7 @@ import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } fr
 import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
 import { createRecipe, createIngredient, createStep } from '../utils/recipe';
 import { RECIPE_CATEGORIES } from '../utils/constants';
+import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditRecipe'>;
 
@@ -16,6 +17,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const { recipeId, prefill } = route.params ?? {};
   const isEditing = !!recipeId;
   const db = useDatabase();
+  const { theme } = useTheme();
 
   const [loading, setLoading] = useState(isEditing);
   const [title, setTitle] = useState(prefill?.title ?? '');
@@ -130,8 +132,10 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     }
   };
 
+  const styles = makeStyles(theme);
+
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#E05C2D" /></View>;
+    return <View style={styles.center}><ActivityIndicator size="large" color={theme.primary} /></View>;
   }
 
   return (
@@ -148,7 +152,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
           value={title}
           onChangeText={setTitle}
           placeholder="e.g. Spaghetti Bolognese"
-          placeholderTextColor="#aaa"
+          placeholderTextColor={theme.textSecondary}
         />
 
         {/* Category */}
@@ -177,7 +181,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
               onChangeText={setServings}
               keyboardType="number-pad"
               placeholder="2"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={theme.textSecondary}
             />
           </View>
           <View style={styles.rowItem}>
@@ -188,7 +192,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
               onChangeText={setPrepTime}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={theme.textSecondary}
             />
           </View>
           <View style={styles.rowItem}>
@@ -199,7 +203,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
               onChangeText={setCookTime}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={theme.textSecondary}
             />
           </View>
         </View>
@@ -230,14 +234,14 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 value={ing.name}
                 onChangeText={(v) => updateIngredient(i, 'name', v)}
                 placeholder="Ingredient"
-                placeholderTextColor="#aaa"
+                placeholderTextColor={theme.textSecondary}
               />
               <TextInput
                 style={[styles.inlineInput, { flex: 1 }]}
                 value={ing.quantity}
                 onChangeText={(v) => updateIngredient(i, 'quantity', v)}
                 placeholder="1"
-                placeholderTextColor="#aaa"
+                placeholderTextColor={theme.textSecondary}
                 keyboardType="decimal-pad"
               />
               <TextInput
@@ -245,7 +249,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 value={ing.unit}
                 onChangeText={(v) => updateIngredient(i, 'unit', v)}
                 placeholder="cup"
-                placeholderTextColor="#aaa"
+                placeholderTextColor={theme.textSecondary}
               />
               <TouchableOpacity
                 onPress={() => removeIngredient(i)}
@@ -274,7 +278,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 value={step.instruction}
                 onChangeText={(v) => updateStep(i, v)}
                 placeholder={`Step ${step.order}...`}
-                placeholderTextColor="#aaa"
+                placeholderTextColor={theme.textSecondary}
                 multiline
               />
               <TouchableOpacity
@@ -308,76 +312,78 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { padding: 16, paddingBottom: 40 },
+function makeStyles(theme: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
+    scroll: { padding: 16, paddingBottom: 40 },
 
-  label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: {
-    backgroundColor: '#fff', borderRadius: 10, padding: 14,
-    fontSize: 16, color: '#1C1C1C',
-    borderWidth: 1, borderColor: '#E8E8E8',
-  },
-  inputSmall: {
-    backgroundColor: '#fff', borderRadius: 10, padding: 12,
-    fontSize: 15, color: '#1C1C1C', textAlign: 'center',
-    borderWidth: 1, borderColor: '#E8E8E8',
-  },
+    label: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
+    input: {
+      backgroundColor: theme.card, borderRadius: 10, padding: 14,
+      fontSize: 16, color: theme.text,
+      borderWidth: 1, borderColor: theme.border,
+    },
+    inputSmall: {
+      backgroundColor: theme.card, borderRadius: 10, padding: 12,
+      fontSize: 15, color: theme.text, textAlign: 'center',
+      borderWidth: 1, borderColor: theme.border,
+    },
 
-  categoryScroll: { marginBottom: 4 },
-  categoryChip: {
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
-    marginRight: 8, backgroundColor: '#fff',
-    borderWidth: 1, borderColor: '#E8E8E8',
-  },
-  categoryChipActive: { backgroundColor: '#E05C2D', borderColor: '#E05C2D' },
-  categoryChipText: { fontSize: 14, color: '#555', fontWeight: '500' },
-  categoryChipTextActive: { color: '#fff' },
+    categoryScroll: { marginBottom: 4 },
+    categoryChip: {
+      borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+      marginRight: 8, backgroundColor: theme.card,
+      borderWidth: 1, borderColor: theme.border,
+    },
+    categoryChipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
+    categoryChipText: { fontSize: 14, color: theme.textSecondary, fontWeight: '500' },
+    categoryChipTextActive: { color: '#fff' },
 
-  row: { flexDirection: 'row', gap: 10 },
-  rowItem: { flex: 1 },
+    row: { flexDirection: 'row', gap: 10 },
+    rowItem: { flex: 1 },
 
-  favoriteRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 4 },
-  heart: { fontSize: 24, color: '#ccc', marginRight: 10 },
-  heartActive: { color: '#E05C2D' },
-  favoriteLabel: { fontSize: 15, color: '#555' },
+    favoriteRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 4 },
+    heart: { fontSize: 24, color: theme.border, marginRight: 10 },
+    heartActive: { color: theme.primary },
+    favoriteLabel: { fontSize: 15, color: theme.textSecondary },
 
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1C', marginTop: 20, marginBottom: 10 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: '#E8E8E8',
-  },
+    sectionTitle: { fontSize: 17, fontWeight: '700', color: theme.text, marginTop: 20, marginBottom: 10 },
+    card: {
+      backgroundColor: theme.card, borderRadius: 12, padding: 14,
+      borderWidth: 1, borderColor: theme.border,
+    },
 
-  ingredientHeader: { flexDirection: 'row', marginBottom: 6 },
-  colLabel: { fontSize: 11, color: '#aaa', fontWeight: '600', textTransform: 'uppercase' },
+    ingredientHeader: { flexDirection: 'row', marginBottom: 6 },
+    colLabel: { fontSize: 11, color: theme.textSecondary, fontWeight: '600', textTransform: 'uppercase' },
 
-  ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
-  inlineInput: {
-    borderWidth: 1, borderColor: '#E8E8E8', borderRadius: 8,
-    padding: 8, fontSize: 14, color: '#1C1C1C', backgroundColor: '#FAFAFA',
-  },
-  removeBtn: { width: 26, alignItems: 'center' },
-  removeBtnText: { fontSize: 14, color: '#ccc' },
-  addRowBtn: { marginTop: 6, paddingVertical: 8 },
-  addRowBtnText: { fontSize: 14, color: '#E05C2D', fontWeight: '600' },
+    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
+    inlineInput: {
+      borderWidth: 1, borderColor: theme.border, borderRadius: 8,
+      padding: 8, fontSize: 14, color: theme.text, backgroundColor: theme.background,
+    },
+    removeBtn: { width: 26, alignItems: 'center' },
+    removeBtnText: { fontSize: 14, color: theme.textSecondary },
+    addRowBtn: { marginTop: 6, paddingVertical: 8 },
+    addRowBtnText: { fontSize: 14, color: theme.primary, fontWeight: '600' },
 
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10 },
-  stepCircle: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: '#E05C2D',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 6,
-  },
-  stepCircleText: { fontSize: 13, fontWeight: '700', color: '#fff' },
-  stepInput: {
-    flex: 1, borderWidth: 1, borderColor: '#E8E8E8', borderRadius: 8,
-    padding: 10, fontSize: 14, color: '#1C1C1C', backgroundColor: '#FAFAFA',
-    minHeight: 44,
-  },
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10 },
+    stepCircle: {
+      width: 28, height: 28, borderRadius: 14, backgroundColor: theme.primary,
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 6,
+    },
+    stepCircleText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    stepInput: {
+      flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 8,
+      padding: 10, fontSize: 14, color: theme.text, backgroundColor: theme.background,
+      minHeight: 44,
+    },
 
-  saveButton: {
-    backgroundColor: '#E05C2D', borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginTop: 24,
-  },
-  saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { fontSize: 17, fontWeight: '700', color: '#fff' },
-});
+    saveButton: {
+      backgroundColor: theme.primary, borderRadius: 14, paddingVertical: 16,
+      alignItems: 'center', marginTop: 24,
+    },
+    saveButtonDisabled: { opacity: 0.6 },
+    saveButtonText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  });
+}

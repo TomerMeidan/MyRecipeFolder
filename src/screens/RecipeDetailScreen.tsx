@@ -3,18 +3,22 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '../db/DatabaseProvider';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe } from '../types';
 import { getRecipeById, deleteRecipe, toggleFavorite } from '../db/recipeRepository';
 import { totalTime } from '../utils/recipe';
+import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
 export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
   const db = useDatabase();
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,8 +42,12 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
       {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
-          await deleteRecipe(db, recipeId);
-          navigation.goBack();
+          try {
+            await deleteRecipe(db, recipeId);
+            navigation.goBack();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Could not delete the recipe. Please try again.');
+          }
         },
       },
     ]);
@@ -51,8 +59,10 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     setRecipe({ ...recipe, isFavorite: !recipe.isFavorite });
   };
 
+  const styles = makeStyles(theme, insets.bottom);
+
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#E05C2D" /></View>;
+    return <View style={styles.center}><ActivityIndicator size="large" color={theme.primary} /></View>;
   }
 
   if (!recipe) {
@@ -151,85 +161,88 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: 16, color: '#888' },
-  scroll: { paddingBottom: 100 },
+function makeStyles(theme: ThemeColors, bottomInset: number) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
+    errorText: { fontSize: 16, color: theme.textSecondary },
+    scroll: { paddingBottom: 100 },
 
-  headerCard: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
-  title: { fontSize: 22, fontWeight: '700', color: '#1C1C1C', flex: 1, marginRight: 8 },
-  heart: { fontSize: 26, color: '#ccc' },
-  heartActive: { color: '#E05C2D' },
-  pill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFF0EB',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginBottom: 16,
-  },
-  pillText: { fontSize: 13, color: '#E05C2D', fontWeight: '500' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  metaItem: { flex: 1, alignItems: 'center' },
-  metaValue: { fontSize: 15, fontWeight: '600', color: '#1C1C1C' },
-  metaLabel: { fontSize: 11, color: '#888', marginTop: 2 },
-  metaDivider: { width: 1, height: 30, backgroundColor: '#F0F0F0' },
+    headerCard: {
+      backgroundColor: theme.card,
+      margin: 16,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.07,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
+    title: { fontSize: 22, fontWeight: '700', color: theme.text, flex: 1, marginRight: 8 },
+    heart: { fontSize: 26, color: theme.border },
+    heartActive: { color: theme.primary },
+    pill: {
+      alignSelf: 'flex-start',
+      backgroundColor: theme.primaryLight,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      marginBottom: 16,
+    },
+    pillText: { fontSize: 13, color: theme.primary, fontWeight: '500' },
+    metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    metaItem: { flex: 1, alignItems: 'center' },
+    metaValue: { fontSize: 15, fontWeight: '600', color: theme.text },
+    metaLabel: { fontSize: 11, color: theme.textSecondary, marginTop: 2 },
+    metaDivider: { width: 1, height: 30, backgroundColor: theme.border },
 
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1C', marginHorizontal: 16, marginBottom: 8, marginTop: 8 },
-  section: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  emptySection: { fontSize: 14, color: '#aaa', fontStyle: 'italic' },
+    sectionTitle: { fontSize: 18, fontWeight: '700', color: theme.text, marginHorizontal: 16, marginBottom: 8, marginTop: 8 },
+    section: {
+      backgroundColor: theme.card,
+      marginHorizontal: 16,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    emptySection: { fontSize: 14, color: theme.textSecondary, fontStyle: 'italic' },
 
-  ingredientRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  bullet: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#E05C2D', marginRight: 12 },
-  ingredientText: { fontSize: 15, color: '#1C1C1C', flex: 1 },
+    ingredientRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+    bullet: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.primary, marginRight: 12 },
+    ingredientText: { fontSize: 15, color: theme.text, flex: 1 },
 
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
-  stepNumber: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#E05C2D', alignItems: 'center', justifyContent: 'center',
-    marginRight: 12, marginTop: 1, flexShrink: 0,
-  },
-  stepNumberText: { fontSize: 13, fontWeight: '700', color: '#fff' },
-  stepText: { fontSize: 15, color: '#1C1C1C', flex: 1, lineHeight: 22 },
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
+    stepNumber: {
+      width: 28, height: 28, borderRadius: 14,
+      backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center',
+      marginRight: 12, marginTop: 1, flexShrink: 0,
+    },
+    stepNumberText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    stepText: { fontSize: 15, color: theme.text, flex: 1, lineHeight: 22 },
 
-  actionBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', padding: 16, paddingBottom: 28,
-    backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#F0F0F0',
-    gap: 12,
-  },
-  editButton: {
-    flex: 1, backgroundColor: '#E05C2D', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  editButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
-  deleteButton: {
-    backgroundColor: '#FFF0EB', borderRadius: 12,
-    paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center',
-  },
-  deleteButtonText: { fontSize: 16, fontWeight: '600', color: '#E05C2D' },
-});
+    actionBar: {
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      flexDirection: 'row', padding: 16,
+      paddingBottom: Math.max(bottomInset, 16),
+      backgroundColor: theme.card,
+      borderTopWidth: 1, borderTopColor: theme.border,
+      gap: 12,
+    },
+    editButton: {
+      flex: 1, backgroundColor: theme.primary, borderRadius: 12,
+      paddingVertical: 14, alignItems: 'center',
+    },
+    editButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+    deleteButton: {
+      backgroundColor: theme.primaryLight, borderRadius: 12,
+      paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center',
+    },
+    deleteButtonText: { fontSize: 16, fontWeight: '600', color: theme.primary },
+  });
+}
