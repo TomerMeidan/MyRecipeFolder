@@ -45,6 +45,7 @@ export interface RecipePrefill {
 }
 
 export type RootStackParamList = {
+  Login: undefined;
   Home: undefined;
   RecipeDetail: { recipeId: string };
   AddEditRecipe: { recipeId?: string; prefill?: RecipePrefill };
