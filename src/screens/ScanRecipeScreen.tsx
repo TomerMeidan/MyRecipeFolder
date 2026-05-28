@@ -230,15 +230,25 @@ export default function ScanRecipeScreen() {
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
 
-      setImageUri(manipResult.uri);
-      setImageBase64(manipResult.base64 ?? null);
+      // Close the crop modal first
+      setShowCropModal(false);
+      setIsCropping(false);
+
+      // Then immediately start analysis with the cropped image
+      const croppedBase64 = manipResult.base64 ?? null;
+      const croppedUri    = manipResult.uri;
+      setImageUri(croppedUri);
+      setImageBase64(croppedBase64);
       setOriginalWidth(manipResult.width);
       setOriginalHeight(manipResult.height);
-      setShowCropModal(false);
+
+      if (croppedBase64 && GEMINI_API_KEY) {
+        await handleAnalyze(sourceLang, outputLang, croppedBase64, croppedUri);
+      }
     } catch (err: any) {
-      Alert.alert('Cropping error', err?.message ?? 'Failed to crop image');
-    } finally {
       setIsCropping(false);
+      console.error('[Crop]', err?.message);
+      Alert.alert('Cropping failed', err?.message ?? 'Could not crop the image. Please try again.');
     }
   };
 
@@ -363,14 +373,21 @@ export default function ScanRecipeScreen() {
 
   // ── Analyze ───────────────────────────────────────────────────────────────
 
-  const handleAnalyze = async (src = sourceLang, out = outputLang) => {
-    if (!requireKey() || !imageBase64 || !imageUri) return;
+  const handleAnalyze = async (
+    src = sourceLang,
+    out = outputLang,
+    overrideBase64?: string,
+    overrideUri?: string,
+  ) => {
+    const b64 = overrideBase64 ?? imageBase64;
+    const uri = overrideUri   ?? imageUri;
+    if (!requireKey() || !b64 || !uri) return;
     setErrorMsg(null);
     setStep('analyzing');
     try {
       const result = await parseRecipeFromImage(
-        imageBase64,
-        imageUri,
+        b64,
+        uri,
         GEMINI_API_KEY,
         {
           sourceLanguage: src ? langName(src) : undefined,
