@@ -225,10 +225,15 @@ export default function ScanRecipeScreen() {
     const cropHeight = Math.max(10, Math.min(originalHeight - originY, Math.round(box.h * scaleY)));
 
     try {
+      const maxDim = 1024;
+      const scale = Math.min(1, maxDim / Math.max(cropWidth, cropHeight));
       const manipResult = await ImageManipulator.manipulateAsync(
         imageUri,
-        [{ crop: { originX, originY, width: cropWidth, height: cropHeight } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        [
+          { crop: { originX, originY, width: cropWidth, height: cropHeight } },
+          ...(scale < 1 ? [{ resize: { width: Math.round(cropWidth * scale) } }] : []),
+        ],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
 
       setImageUri(manipResult.uri);
@@ -330,23 +335,35 @@ export default function ScanRecipeScreen() {
     if (fromCamera) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
-      result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.85, base64: true });
+      // Pick without base64 first — we'll compress before encoding
+      result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 1 });
     } else {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) { Alert.alert('Permission needed', 'Photo library access is required.'); return; }
-      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.85, base64: true });
+      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 1 });
     }
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      setImageUri(asset.uri);
-      setImageBase64(asset.base64 ?? null);
+
+      // Resize to max 1024px on the longest side and compress to 0.7 quality.
+      // A full phone photo (4000×3000) becomes ~150KB instead of ~4MB —
+      // cutting the base64 payload by ~25× so the AI model can actually process it.
+      const maxDim = 1024;
+      const scale = Math.min(1, maxDim / Math.max(asset.width, asset.height));
+      const compressed = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        scale < 1 ? [{ resize: { width: Math.round(asset.width * scale) } }] : [],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+
+      setImageUri(compressed.uri);
+      setImageBase64(compressed.base64 ?? null);
       setImageFileName(asset.fileName ?? undefined);
-      setOriginalWidth(asset.width);
-      setOriginalHeight(asset.height);
+      setOriginalWidth(compressed.width);
+      setOriginalHeight(compressed.height);
       setStep('preview');
 
-      // Automatically open the crop editor
-      startCropping(asset.uri, asset.width, asset.height);
+      startCropping(compressed.uri, compressed.width, compressed.height);
     }
   };
 
