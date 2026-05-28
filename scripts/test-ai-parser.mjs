@@ -29,9 +29,9 @@ const TIMEOUT_MS = 30_000;
 
 const VISION_MODELS = [
   { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'Nemotron 30B Reasoning' },
+  { id: 'google/gemma-4-26b-a4b-it:free',                     label: 'Gemma 4 26B' },
   { id: 'google/gemma-4-31b-it:free',                         label: 'Gemma 4 31B' },
   { id: 'moonshotai/kimi-k2.6:free',                          label: 'Kimi K2.6' },
-  { id: 'google/gemma-4-26b-a4b-it:free',                     label: 'Gemma 4 26B' },
 ];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
