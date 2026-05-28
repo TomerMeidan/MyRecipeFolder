@@ -18,8 +18,9 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe]   = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,11 +42,15 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
       {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
+          setDeleting(true);
           try {
             await deleteRecipe(recipeId);
             navigation.goBack();
           } catch (e: any) {
-            Alert.alert('Error', e?.message ?? 'Could not delete the recipe. Please try again.');
+            setDeleting(false);
+            const msg = e?.message ?? 'Could not delete the recipe.';
+            console.error('[Delete]', msg);
+            Alert.alert('Delete failed', msg);
           }
         },
       },
@@ -152,8 +157,12 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
         >
           <Text style={styles.editButtonText}>Edit Recipe</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Text style={styles.deleteButtonText}>Delete</Text>
+        <TouchableOpacity
+          style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
+          onPress={handleDelete}
+          disabled={deleting}
+        >
+          <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete'}</Text>
         </TouchableOpacity>
       </View>
     </View>
