@@ -567,33 +567,43 @@ export default function ScanRecipeScreen() {
                   <View
                     style={{ position: 'absolute', left: box.x + 20, top: box.y + 20, width: Math.max(0, box.w - 40), height: Math.max(0, box.h - 40), zIndex: 8 }}
                     onTouchStart={(e) => handleTouchStart('center', e)}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                   />
 
                   {/* Edge drag bars */}
                   <View style={{ position: 'absolute', left: box.x + 20, top: box.y - 15, width: Math.max(0, box.w - 40), height: 30, zIndex: 9 }}
-                    onTouchStart={(e) => handleTouchStart('top', e)} />
+                    onTouchStart={(e) => handleTouchStart('top', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} />
                   <View style={{ position: 'absolute', left: box.x + 20, top: box.y + box.h - 15, width: Math.max(0, box.w - 40), height: 30, zIndex: 9 }}
-                    onTouchStart={(e) => handleTouchStart('bottom', e)} />
+                    onTouchStart={(e) => handleTouchStart('bottom', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} />
                   <View style={{ position: 'absolute', left: box.x - 15, top: box.y + 20, width: 30, height: Math.max(0, box.h - 40), zIndex: 9 }}
-                    onTouchStart={(e) => handleTouchStart('left', e)} />
+                    onTouchStart={(e) => handleTouchStart('left', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} />
                   <View style={{ position: 'absolute', left: box.x + box.w - 15, top: box.y + 20, width: 30, height: Math.max(0, box.h - 40), zIndex: 9 }}
-                    onTouchStart={(e) => handleTouchStart('right', e)} />
+                    onTouchStart={(e) => handleTouchStart('right', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} />
 
                   {/* Corner handles */}
                   <View style={{ position: 'absolute', left: box.x - 20, top: box.y - 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-                    onTouchStart={(e) => handleTouchStart('corner-tl', e)}>
+                    onTouchStart={(e) => handleTouchStart('corner-tl', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                     <View style={[cropStyles.cornerVisual, { borderTopWidth: 3, borderLeftWidth: 3, borderColor: theme.primary, top: 10, left: 10 }]} />
                   </View>
                   <View style={{ position: 'absolute', left: box.x + box.w - 20, top: box.y - 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-                    onTouchStart={(e) => handleTouchStart('corner-tr', e)}>
+                    onTouchStart={(e) => handleTouchStart('corner-tr', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                     <View style={[cropStyles.cornerVisual, { borderTopWidth: 3, borderRightWidth: 3, borderColor: theme.primary, top: 10, right: 10 }]} />
                   </View>
                   <View style={{ position: 'absolute', left: box.x - 20, top: box.y + box.h - 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-                    onTouchStart={(e) => handleTouchStart('corner-bl', e)}>
+                    onTouchStart={(e) => handleTouchStart('corner-bl', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                     <View style={[cropStyles.cornerVisual, { borderBottomWidth: 3, borderLeftWidth: 3, borderColor: theme.primary, bottom: 10, left: 10 }]} />
                   </View>
                   <View style={{ position: 'absolute', left: box.x + box.w - 20, top: box.y + box.h - 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-                    onTouchStart={(e) => handleTouchStart('corner-br', e)}>
+                    onTouchStart={(e) => handleTouchStart('corner-br', e)}
+                    onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                     <View style={[cropStyles.cornerVisual, { borderBottomWidth: 3, borderRightWidth: 3, borderColor: theme.primary, bottom: 10, right: 10 }]} />
                   </View>
                 </View>
