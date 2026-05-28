@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Platform } from 'react-native';
 import {
   View, Text, Image, TouchableOpacity, ScrollView, FlatList,
   StyleSheet, Alert, ActivityIndicator, Modal,
@@ -443,12 +444,15 @@ export default function ScanRecipeScreen() {
         {imageUri && (
           <View style={styles.previewContainer}>
             <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
-            <TouchableOpacity
-              style={styles.cropFloatingBtn}
-              onPress={handleOpenCrop}
-            >
-              <Text style={styles.cropFloatingBtnText}>✂️ Crop Photo</Text>
-            </TouchableOpacity>
+            {/* Crop only available on native — gesture system doesn't work on web */}
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={styles.cropFloatingBtn}
+                onPress={handleOpenCrop}
+              >
+                <Text style={styles.cropFloatingBtnText}>✂️ Crop Photo</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 

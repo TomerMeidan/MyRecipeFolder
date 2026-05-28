@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, Modal,
+  StyleSheet, Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,9 +18,10 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [recipe, setRecipe]   = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
+  const [recipe, setRecipe]         = useState<Recipe | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [deleting, setDeleting]     = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,24 +38,29 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   );
 
   const handleDelete = () => {
-    Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await deleteRecipe(recipeId);
-            navigation.goBack();
-          } catch (e: any) {
-            setDeleting(false);
-            const msg = e?.message ?? 'Could not delete the recipe.';
-            console.error('[Delete]', msg);
-            Alert.alert('Delete failed', msg);
-          }
-        },
-      },
-    ]);
+    // Alert.alert doesn't work reliably on web — use a custom modal instead
+    if (Platform.OS === 'web') {
+      setConfirmVisible(true);
+    } else {
+      Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+      ]);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setConfirmVisible(false);
+    setDeleting(true);
+    try {
+      await deleteRecipe(recipeId);
+      navigation.goBack();
+    } catch (e: any) {
+      setDeleting(false);
+      const msg = e?.message ?? 'Could not delete the recipe.';
+      console.error('[Delete]', msg);
+      Alert.alert('Delete failed', msg);
+    }
   };
 
   const handleToggleFavorite = async () => {
@@ -165,6 +171,26 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
           <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete'}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Web-compatible delete confirmation modal */}
+      <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Delete Recipe</Text>
+            <Text style={[styles.modalMsg, { color: theme.textSecondary }]}>
+              Are you sure you want to delete this recipe? This cannot be undone.
+            </Text>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={[styles.modalCancel, { borderColor: theme.border }]} onPress={() => setConfirmVisible(false)}>
+                <Text style={[styles.modalCancelText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalDelete} onPress={confirmDelete}>
+                <Text style={styles.modalDeleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -252,5 +278,15 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
       paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center',
     },
     deleteButtonText: { fontSize: 16, fontWeight: '600', color: theme.primary },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+    modalBox:     { borderRadius: 16, padding: 24, width: '85%', maxWidth: 380 },
+    modalTitle:   { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+    modalMsg:     { fontSize: 14, lineHeight: 20, marginBottom: 24 },
+    modalBtns:    { flexDirection: 'row', gap: 12 },
+    modalCancel:  { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1 },
+    modalCancelText: { fontSize: 15, fontWeight: '600' },
+    modalDelete:  { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', backgroundColor: '#D32F2F' },
+    modalDeleteText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   });
 }
