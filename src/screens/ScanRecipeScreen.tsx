@@ -10,7 +10,12 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { ParsedRecipe } from '../utils/recipeParser';
-import { parseRecipeFromImage } from '../utils/aiParser';
+import {
+  parseRecipeFromImage,
+  ModelOption,
+  ProgressUpdate,
+  VISION_MODELS,
+} from '../utils/aiParser';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -147,8 +152,10 @@ export default function ScanRecipeScreen() {
   const [imageFileName, setImageFileName] = useState<string | undefined>();
   const [sourceLang, setSourceLang] = useState('');
   const [outputLang, setOutputLang] = useState('');
-  const [parsed, setParsed]       = useState<ParsedRecipe | null>(null);
-  const [errorMsg, setErrorMsg]   = useState<string | null>(null);
+  const [parsed, setParsed]         = useState<ParsedRecipe | null>(null);
+  const [usedModel, setUsedModel]   = useState<ModelOption | null>(null);
+  const [progress, setProgress]     = useState<ProgressUpdate | null>(null);
+  const [errorMsg, setErrorMsg]     = useState<string | null>(null);
   const [showSrcPicker, setShowSrcPicker] = useState(false);
   const [showOutPicker, setShowOutPicker] = useState(false);
 
@@ -347,6 +354,7 @@ export default function ScanRecipeScreen() {
   const handleAnalyze = async (src = sourceLang, out = outputLang) => {
     if (!requireKey() || !imageBase64 || !imageUri) return;
     setErrorMsg(null);
+    setProgress(null);
     setStep('analyzing');
     try {
       const result = await parseRecipeFromImage(
@@ -358,12 +366,14 @@ export default function ScanRecipeScreen() {
           outputLanguage: out ? langName(out) : undefined,
         },
         imageFileName,
+        (update) => setProgress(update),
       );
       setParsed(result);
+      setUsedModel(result.usedModel);
       setStep('done');
     } catch (e: any) {
       const msg: string = e?.message ?? 'Unknown error';
-      console.error('[Gemini]', msg);
+      console.error('[AI]', msg);
       setErrorMsg(msg);
       setStep('preview');
     }
@@ -373,6 +383,7 @@ export default function ScanRecipeScreen() {
     setStep('pick');
     setImageUri(null); setImageBase64(null); setImageFileName(undefined);
     setSourceLang(''); setOutputLang(''); setParsed(null);
+    setUsedModel(null); setProgress(null); setErrorMsg(null);
     setOriginalWidth(0); setOriginalHeight(0);
   };
 
@@ -381,11 +392,40 @@ export default function ScanRecipeScreen() {
   const styles = makeStyles(theme);
 
   if (step === 'analyzing') {
+    const current = progress;
+    const switchBadge = current?.switchReason === 'timeout'
+      ? '⏱ Timed out — switching model'
+      : current?.switchReason === 'error'
+      ? '⚠ Error — switching model'
+      : null;
+
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.statusMsg}>Reading recipe with AI…</Text>
-        <Text style={styles.statusHint}>Gemini is examining the image</Text>
+        <Text style={styles.statusMsg}>Analyzing recipe…</Text>
+
+        {switchBadge && (
+          <View style={styles.switchBadge}>
+            <Text style={styles.switchBadgeText}>{switchBadge}</Text>
+          </View>
+        )}
+
+        {current ? (
+          <>
+            <Text style={styles.statusHint}>
+              🤖 {current.model.label}
+              {current.model.hasReasoning ? '  ✦ reasoning' : ''}
+            </Text>
+            <Text style={styles.statusModel}>
+              {current.model.id}
+            </Text>
+            <Text style={styles.statusAttempt}>
+              Model {current.attempt} of {current.total}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.statusHint}>Starting…</Text>
+        )}
       </View>
     );
   }
@@ -603,7 +643,12 @@ export default function ScanRecipeScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryTitleRow}>
             <Text style={[styles.summaryTitle, { flex: 1 }]}>{parsed.title || 'Untitled Recipe'}</Text>
-            <View style={styles.aiBadge}><Text style={styles.aiBadgeText}>🤖 Gemini</Text></View>
+            <View style={styles.aiBadge}>
+              <Text style={styles.aiBadgeText}>
+                🤖 {usedModel?.label ?? 'AI'}
+                {usedModel?.hasReasoning ? '  ✦' : ''}
+              </Text>
+            </View>
           </View>
           <View style={styles.pill}>
             <Text style={styles.pillText}>{parsed.category}</Text>
@@ -737,6 +782,15 @@ function makeStyles(theme: ThemeColors) {
     center:       { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
     statusMsg:    { marginTop: 16, fontSize: 16, color: theme.text, fontWeight: '600' },
     statusHint:   { marginTop: 6, fontSize: 13, color: theme.textSecondary },
+    statusModel:   { marginTop: 4, fontSize: 11, color: theme.textSecondary, opacity: 0.6 },
+    statusAttempt: { marginTop: 8, fontSize: 12, color: theme.textSecondary, fontWeight: '600' },
+    switchBadge:   {
+      marginTop: 14, marginBottom: 2,
+      backgroundColor: '#FFF3CD', borderRadius: 8,
+      paddingHorizontal: 12, paddingVertical: 5,
+      borderWidth: 1, borderColor: '#FFD700',
+    },
+    switchBadgeText: { fontSize: 12, color: '#7A5800', fontWeight: '600' },
     previewScroll: { paddingBottom: 32 },
     doneScroll:   { padding: 16, paddingBottom: 40 },
 
