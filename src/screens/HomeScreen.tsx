@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator,
 } from 'react-native';
-import { useDatabase } from '../db/DatabaseProvider';
+
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Recipe, RootStackParamList } from '../types';
@@ -21,7 +21,6 @@ const SCHEME_COLORS: Array<{ key: ColorSchemeType; color: string }> = [
 ];
 
 export default function HomeScreen() {
-  const db = useDatabase();
   const navigation = useNavigation<NavProp>();
   const { theme, isDarkMode, toggleDarkMode, colorScheme, setColorScheme } = useTheme();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -31,14 +30,14 @@ export default function HomeScreen() {
     useCallback(() => {
       let active = true;
       setLoading(true);
-      getAllRecipes(db).then((data) => {
+      getAllRecipes().then((data) => {
         if (active) {
           setRecipes(data);
           setLoading(false);
         }
       });
       return () => { active = false; };
-    }, [db]),
+    }, []),
   );
 
   if (loading) {

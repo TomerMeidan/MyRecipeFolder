@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native';
-import { useDatabase } from '../db/DatabaseProvider';
+
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Recipe, RecipeCategory, RootStackParamList } from '../types';
@@ -15,7 +15,6 @@ import { useTheme, ThemeColors } from '../theme/ThemeContext';
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SearchScreen() {
-  const db = useDatabase();
   const navigation = useNavigation<NavProp>();
   const { theme } = useTheme();
 
@@ -29,12 +28,12 @@ export default function SearchScreen() {
   const runSearch = useCallback(
     async (q: string, cat: RecipeCategory | null) => {
       setLoading(true);
-      const data = await filterRecipes(db, q, cat ?? undefined);
+      const data = await filterRecipes(q, cat ?? undefined);
       setResults(data);
       setSearched(true);
       setLoading(false);
     },
-    [db],
+    [],
   );
 
   useEffect(() => {
@@ -48,7 +47,7 @@ export default function SearchScreen() {
   useFocusEffect(
     useCallback(() => {
       runSearch(query, selectedCategory);
-    }, [db]),
+    }, []),
   );
 
   const handleCategoryPress = (cat: RecipeCategory) => {

@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
   StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
-import { useDatabase } from '../db/DatabaseProvider';
+
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
 import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
@@ -16,7 +16,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddEditRecipe'>;
 export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const { recipeId, prefill } = route.params ?? {};
   const isEditing = !!recipeId;
-  const db = useDatabase();
   const { theme } = useTheme();
 
   const [loading, setLoading] = useState(isEditing);
@@ -41,7 +40,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     if (!isEditing || !recipeId) return;
-    getRecipeById(db, recipeId).then((data) => {
+    getRecipeById(recipeId).then((data) => {
       if (data) {
         setExistingRecipe(data);
         setTitle(data.title);
@@ -119,10 +118,10 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
       });
 
       if (isEditing) {
-        await updateRecipe(db, recipe);
+        await updateRecipe(recipe);
         navigation.goBack();
       } else {
-        await insertRecipe(db, recipe);
+        await insertRecipe(recipe);
         navigation.goBack();
       }
     } catch (e) {

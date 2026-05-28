@@ -4,7 +4,7 @@ import {
   StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDatabase } from '../db/DatabaseProvider';
+
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe } from '../types';
@@ -16,7 +16,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
 export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
-  const db = useDatabase();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -25,7 +24,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getRecipeById(db, recipeId).then((data) => {
+      getRecipeById(recipeId).then((data) => {
         if (active) {
           setRecipe(data);
           setLoading(false);
@@ -33,7 +32,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
         }
       });
       return () => { active = false; };
-    }, [db, recipeId]),
+    }, [recipeId]),
   );
 
   const handleDelete = () => {
@@ -43,7 +42,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
           try {
-            await deleteRecipe(db, recipeId);
+            await deleteRecipe(recipeId);
             navigation.goBack();
           } catch (e: any) {
             Alert.alert('Error', e?.message ?? 'Could not delete the recipe. Please try again.');
@@ -55,7 +54,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
 
   const handleToggleFavorite = async () => {
     if (!recipe) return;
-    await toggleFavorite(db, recipe.id, !recipe.isFavorite);
+    await toggleFavorite(recipe.id, !recipe.isFavorite);
     setRecipe({ ...recipe, isFavorite: !recipe.isFavorite });
   };
 

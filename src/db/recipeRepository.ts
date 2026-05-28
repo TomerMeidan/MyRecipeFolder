@@ -1,236 +1,154 @@
-import { SQLiteDatabase } from 'expo-sqlite';
+import { supabase } from '../lib/supabase';
 import { Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
 
-// ── Raw row shapes returned by SQLite ──────────────────────────────────────
+// ── Row shapes from Supabase ──────────────────────────────────────────────────
 
 interface RecipeRow {
-  id: string;
-  title: string;
-  category: string;
-  language: string;
-  servings: number;
-  prep_time: number;
-  cook_time: number;
-  is_favorite: number;
-  photo_uri: string | null;
-  created_at: number;
-  updated_at: number;
+  id: string; user_id: string; title: string; category: string;
+  language: string; servings: number; prep_time: number; cook_time: number;
+  is_favorite: boolean; photo_uri: string | null;
+  created_at: number; updated_at: number;
+  ingredients?: IngredientRow[];
+  steps?: StepRow[];
 }
+interface IngredientRow { id: string; recipe_id: string; name: string; quantity: string; unit: string; }
+interface StepRow      { recipe_id: string; order_num: number; instruction: string; }
 
-interface IngredientRow {
-  id: string;
-  recipe_id: string;
-  name: string;
-  quantity: string;
-  unit: string;
-}
+// ── Mapper ────────────────────────────────────────────────────────────────────
 
-interface StepRow {
-  recipe_id: string;
-  order_num: number;
-  instruction: string;
-}
+function toRecipe(row: RecipeRow): Recipe {
+  const ingredients: Ingredient[] = (row.ingredients ?? []).map((i) => ({
+    id: i.id, name: i.name, quantity: i.quantity, unit: i.unit,
+  }));
+  const steps: RecipeStep[] = (row.steps ?? [])
+    .sort((a, b) => a.order_num - b.order_num)
+    .map((s) => ({ order: s.order_num, instruction: s.instruction }));
 
-// ── Mappers ────────────────────────────────────────────────────────────────
-
-function toRecipe(
-  row: RecipeRow,
-  ingredients: Ingredient[],
-  steps: RecipeStep[],
-): Recipe {
   return {
-    id: row.id,
-    title: row.title,
-    category: row.category as RecipeCategory,
-    language: row.language,
-    servings: row.servings,
-    prepTime: row.prep_time,
-    cookTime: row.cook_time,
-    isFavorite: row.is_favorite === 1,
-    photoUri: row.photo_uri ?? undefined,
-    ingredients,
-    steps,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: row.id, title: row.title, category: row.category as RecipeCategory,
+    language: row.language, servings: row.servings,
+    prepTime: row.prep_time, cookTime: row.cook_time,
+    isFavorite: row.is_favorite, photoUri: row.photo_uri ?? undefined,
+    ingredients, steps, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+const RECIPE_SELECT = '*, ingredients(*), steps(*)';
 
-async function fetchIngredients(db: SQLiteDatabase, recipeId: string): Promise<Ingredient[]> {
-  const rows = await db.getAllAsync<IngredientRow>(
-    'SELECT * FROM ingredients WHERE recipe_id = ?',
-    recipeId,
-  );
-  return rows.map(({ id, name, quantity, unit }) => ({ id, name, quantity, unit }));
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function getAllRecipes(): Promise<Recipe[]> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select(RECIPE_SELECT)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(toRecipe);
 }
 
-async function fetchSteps(db: SQLiteDatabase, recipeId: string): Promise<RecipeStep[]> {
-  const rows = await db.getAllAsync<StepRow>(
-    'SELECT * FROM steps WHERE recipe_id = ? ORDER BY order_num',
-    recipeId,
-  );
-  return rows.map(({ order_num, instruction }) => ({ order: order_num, instruction }));
+export async function getRecipeById(id: string): Promise<Recipe | null> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select(RECIPE_SELECT)
+    .eq('id', id)
+    .single();
+  if (error) return null;
+  return data ? toRecipe(data as RecipeRow) : null;
 }
 
-// ── Public API ─────────────────────────────────────────────────────────────
+export async function insertRecipe(recipe: Recipe): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
 
-export async function getAllRecipes(db: SQLiteDatabase): Promise<Recipe[]> {
-  const rows = await db.getAllAsync<RecipeRow>(
-    'SELECT * FROM recipes ORDER BY updated_at DESC',
-  );
-  return Promise.all(
-    rows.map(async (row) => {
-      const ingredients = await fetchIngredients(db, row.id);
-      const steps = await fetchSteps(db, row.id);
-      return toRecipe(row, ingredients, steps);
-    }),
-  );
-}
-
-export async function getRecipeById(db: SQLiteDatabase, id: string): Promise<Recipe | null> {
-  const row = await db.getFirstAsync<RecipeRow>('SELECT * FROM recipes WHERE id = ?', id);
-  if (!row) return null;
-  const ingredients = await fetchIngredients(db, id);
-  const steps = await fetchSteps(db, id);
-  return toRecipe(row, ingredients, steps);
-}
-
-export async function insertRecipe(db: SQLiteDatabase, recipe: Recipe): Promise<void> {
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(
-      `INSERT INTO recipes
-        (id, title, category, language, servings, prep_time, cook_time, is_favorite, photo_uri, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      recipe.id,
-      recipe.title,
-      recipe.category,
-      recipe.language,
-      recipe.servings,
-      recipe.prepTime,
-      recipe.cookTime,
-      recipe.isFavorite ? 1 : 0,
-      recipe.photoUri ?? null,
-      recipe.createdAt,
-      recipe.updatedAt,
-    );
-
-    for (const ing of recipe.ingredients) {
-      await db.runAsync(
-        'INSERT INTO ingredients (id, recipe_id, name, quantity, unit) VALUES (?, ?, ?, ?, ?)',
-        ing.id, recipe.id, ing.name, ing.quantity, ing.unit,
-      );
-    }
-
-    for (const step of recipe.steps) {
-      await db.runAsync(
-        'INSERT INTO steps (recipe_id, order_num, instruction) VALUES (?, ?, ?)',
-        recipe.id, step.order, step.instruction,
-      );
-    }
+  const { error: recipeError } = await supabase.from('recipes').insert({
+    id: recipe.id, user_id: user.id, title: recipe.title,
+    category: recipe.category, language: recipe.language,
+    servings: recipe.servings, prep_time: recipe.prepTime,
+    cook_time: recipe.cookTime, is_favorite: recipe.isFavorite,
+    photo_uri: recipe.photoUri ?? null,
+    created_at: recipe.createdAt, updated_at: recipe.updatedAt,
   });
-}
+  if (recipeError) throw recipeError;
 
-export async function updateRecipe(db: SQLiteDatabase, recipe: Recipe): Promise<void> {
-  const updatedAt = Date.now();
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(
-      `UPDATE recipes SET
-        title = ?, category = ?, language = ?, servings = ?,
-        prep_time = ?, cook_time = ?, is_favorite = ?, photo_uri = ?, updated_at = ?
-       WHERE id = ?`,
-      recipe.title,
-      recipe.category,
-      recipe.language,
-      recipe.servings,
-      recipe.prepTime,
-      recipe.cookTime,
-      recipe.isFavorite ? 1 : 0,
-      recipe.photoUri ?? null,
-      updatedAt,
-      recipe.id,
+  if (recipe.ingredients.length > 0) {
+    const { error } = await supabase.from('ingredients').insert(
+      recipe.ingredients.map((i) => ({ id: i.id, recipe_id: recipe.id, name: i.name, quantity: i.quantity, unit: i.unit })),
     );
-
-    await db.runAsync('DELETE FROM ingredients WHERE recipe_id = ?', recipe.id);
-    await db.runAsync('DELETE FROM steps WHERE recipe_id = ?', recipe.id);
-
-    for (const ing of recipe.ingredients) {
-      await db.runAsync(
-        'INSERT INTO ingredients (id, recipe_id, name, quantity, unit) VALUES (?, ?, ?, ?, ?)',
-        ing.id, recipe.id, ing.name, ing.quantity, ing.unit,
-      );
-    }
-
-    for (const step of recipe.steps) {
-      await db.runAsync(
-        'INSERT INTO steps (recipe_id, order_num, instruction) VALUES (?, ?, ?)',
-        recipe.id, step.order, step.instruction,
-      );
-    }
-  });
-}
-
-export async function deleteRecipe(db: SQLiteDatabase, id: string): Promise<void> {
-  // ON DELETE CASCADE handles ingredients and steps
-  await db.runAsync('DELETE FROM recipes WHERE id = ?', id);
-}
-
-export async function toggleFavorite(db: SQLiteDatabase, id: string, isFavorite: boolean): Promise<void> {
-  await db.runAsync(
-    'UPDATE recipes SET is_favorite = ?, updated_at = ? WHERE id = ?',
-    isFavorite ? 1 : 0,
-    Date.now(),
-    id,
-  );
-}
-
-export async function filterRecipes(
-  db: SQLiteDatabase,
-  query: string,
-  category?: RecipeCategory,
-): Promise<Recipe[]> {
-  const hasQuery = query.trim().length > 0;
-  const hasCategory = !!category;
-
-  let rows: RecipeRow[];
-
-  if (!hasQuery && !hasCategory) {
-    rows = await db.getAllAsync<RecipeRow>(
-      'SELECT * FROM recipes ORDER BY updated_at DESC',
-    );
-  } else if (!hasQuery && hasCategory) {
-    rows = await db.getAllAsync<RecipeRow>(
-      'SELECT * FROM recipes WHERE category = ? ORDER BY updated_at DESC',
-      category,
-    );
-  } else if (hasQuery && !hasCategory) {
-    const like = `%${query.trim()}%`;
-    rows = await db.getAllAsync<RecipeRow>(
-      `SELECT DISTINCT r.*
-       FROM recipes r
-       LEFT JOIN ingredients i ON i.recipe_id = r.id
-       WHERE r.title LIKE ? OR r.category LIKE ? OR i.name LIKE ?
-       ORDER BY r.updated_at DESC`,
-      like, like, like,
-    );
-  } else {
-    const like = `%${query.trim()}%`;
-    rows = await db.getAllAsync<RecipeRow>(
-      `SELECT DISTINCT r.*
-       FROM recipes r
-       LEFT JOIN ingredients i ON i.recipe_id = r.id
-       WHERE r.category = ?
-         AND (r.title LIKE ? OR i.name LIKE ?)
-       ORDER BY r.updated_at DESC`,
-      category as RecipeCategory, like, like,
-    );
+    if (error) throw error;
   }
 
-  return Promise.all(
-    rows.map(async (row) => {
-      const ingredients = await fetchIngredients(db, row.id);
-      const steps = await fetchSteps(db, row.id);
-      return toRecipe(row, ingredients, steps);
-    }),
-  );
+  if (recipe.steps.length > 0) {
+    const { error } = await supabase.from('steps').insert(
+      recipe.steps.map((s) => ({ recipe_id: recipe.id, order_num: s.order, instruction: s.instruction })),
+    );
+    if (error) throw error;
+  }
+}
+
+export async function updateRecipe(recipe: Recipe): Promise<void> {
+  const updatedAt = Date.now();
+
+  const { error: recipeError } = await supabase.from('recipes').update({
+    title: recipe.title, category: recipe.category, language: recipe.language,
+    servings: recipe.servings, prep_time: recipe.prepTime,
+    cook_time: recipe.cookTime, is_favorite: recipe.isFavorite,
+    photo_uri: recipe.photoUri ?? null, updated_at: updatedAt,
+  }).eq('id', recipe.id);
+  if (recipeError) throw recipeError;
+
+  // Replace ingredients and steps
+  await supabase.from('ingredients').delete().eq('recipe_id', recipe.id);
+  await supabase.from('steps').delete().eq('recipe_id', recipe.id);
+
+  if (recipe.ingredients.length > 0) {
+    await supabase.from('ingredients').insert(
+      recipe.ingredients.map((i) => ({ id: i.id, recipe_id: recipe.id, name: i.name, quantity: i.quantity, unit: i.unit })),
+    );
+  }
+  if (recipe.steps.length > 0) {
+    await supabase.from('steps').insert(
+      recipe.steps.map((s) => ({ recipe_id: recipe.id, order_num: s.order, instruction: s.instruction })),
+    );
+  }
+}
+
+export async function deleteRecipe(id: string): Promise<void> {
+  const { error } = await supabase.from('recipes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function toggleFavorite(id: string, isFavorite: boolean): Promise<void> {
+  const { error } = await supabase.from('recipes').update({
+    is_favorite: isFavorite, updated_at: Date.now(),
+  }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function filterRecipes(query: string, category?: RecipeCategory): Promise<Recipe[]> {
+  const hasQuery    = query.trim().length > 0;
+  const hasCategory = !!category;
+
+  if (!hasQuery && !hasCategory) return getAllRecipes();
+
+  // Fetch all recipes with nested data, then filter client-side for ingredient name search
+  const { data, error } = await supabase
+    .from('recipes')
+    .select(RECIPE_SELECT)
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  if (!data) return [];
+
+  return (data as RecipeRow[])
+    .filter((row) => {
+      const matchesCategory = !hasCategory || row.category === category;
+      if (!matchesCategory) return false;
+      if (!hasQuery) return true;
+      const q = query.trim().toLowerCase();
+      const inTitle    = row.title.toLowerCase().includes(q);
+      const inCategory = row.category.toLowerCase().includes(q);
+      const inIngredients = (row.ingredients ?? []).some((i) => i.name.toLowerCase().includes(q));
+      return inTitle || inCategory || inIngredients;
+    })
+    .map(toRecipe);
 }
