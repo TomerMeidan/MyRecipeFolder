@@ -390,7 +390,7 @@ export default function ScanRecipeScreen() {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.previewScroll}>
         {imageUri && (
-          <View>
+          <View style={styles.previewContainer}>
             <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
             <TouchableOpacity style={styles.cropBtn} onPress={openCrop}>
               <Text style={styles.cropBtnText}>✂️  Crop Photo</Text>
@@ -631,15 +631,16 @@ function makeStyles(theme: ThemeColors) {
     ghostBtnText: { fontSize: 15, color: theme.textSecondary, fontWeight: '500' },
     flex1:     { flex: 1, marginHorizontal: 8 },
 
+    previewContainer: { width: '100%', height: 300, backgroundColor: '#000' },
     preview:      { width: '100%', height: 300, backgroundColor: '#000' },
     previewSmall: { width: '100%', height: 180, backgroundColor: '#000', borderRadius: 12, marginBottom: 16 },
     actionRow:    { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 8 },
 
     cropBtn: {
-      alignSelf: 'flex-end', margin: 10,
-      backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 20,
+      position: 'absolute', bottom: 12, right: 12,
+      backgroundColor: 'rgba(0,0,0,0.75)', borderRadius: 20,
       paddingVertical: 8, paddingHorizontal: 16,
-      borderWidth: 1, borderColor: theme.primary,
+      borderWidth: 1.5, borderColor: theme.primary,
     },
     cropBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 
