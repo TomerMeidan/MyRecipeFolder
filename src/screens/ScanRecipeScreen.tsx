@@ -631,18 +631,19 @@ function makeStyles(theme: ThemeColors) {
     ghostBtnText: { fontSize: 15, color: theme.textSecondary, fontWeight: '500' },
     flex1:     { flex: 1, marginHorizontal: 8 },
 
-    previewContainer: { width: '100%', height: 300, backgroundColor: '#000' },
+    previewContainer: { width: '100%', height: 300, backgroundColor: '#000', position: 'relative' },
     preview:      { width: '100%', height: 300, backgroundColor: '#000' },
     previewSmall: { width: '100%', height: 180, backgroundColor: '#000', borderRadius: 12, marginBottom: 16 },
     actionRow:    { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 8 },
 
     cropBtn: {
-      position: 'absolute', bottom: 12, right: 12,
-      backgroundColor: 'rgba(0,0,0,0.75)', borderRadius: 20,
-      paddingVertical: 8, paddingHorizontal: 16,
-      borderWidth: 1.5, borderColor: theme.primary,
+      position: 'absolute', bottom: 14, right: 14,
+      backgroundColor: theme.primary, borderRadius: 22,
+      paddingVertical: 10, paddingHorizontal: 18,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.4, shadowRadius: 4, elevation: 6,
     },
-    cropBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+    cropBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
     errorBanner:      { backgroundColor: '#FFEBEE', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: '#EF9A9A' },
     errorBannerTitle: { fontSize: 14, fontWeight: '700', color: '#C62828', marginBottom: 4 },
