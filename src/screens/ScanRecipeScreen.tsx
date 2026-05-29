@@ -142,52 +142,54 @@ export default function ScanRecipeScreen() {
   const [showOutPicker, setShowOutPicker] = useState(false);
 
   // ── Crop state ───────────────────────────────────────────────────────────────
-  const [showCrop, setShowCrop]         = useState(false);
-  const [cropImgSize, setCropImgSize]   = useState({ w: 1, h: 1 });
-  const [cropBox, setCropBox]           = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const cropBoxRef                      = useRef({ x: 0, y: 0, w: 0, h: 0 });
+  const [showCrop, setShowCrop]             = useState(false);
+  const [cropImgSize, setCropImgSize]       = useState({ w: 1, h: 1 });
+  const [cropBox, setCropBox]               = useState({ x: 0, y: 0, w: 0, h: 0 });
+  const cropBoxRef                          = useRef({ x: 0, y: 0, w: 0, h: 0 });
+  // containerRef holds display dimensions — stored in a ref so PanResponder
+  // closures always read the current value (refs never go stale in closures).
+  const containerRef                        = useRef({ w: 1, h: 1 });
+  const cropImgSizeRef                      = useRef({ w: 1, h: 1 });
   const [isCropApplying, setIsCropApplying] = useState(false);
 
-  const CROP_CONTAINER = useMemo(() => {
-    const sw = Dimensions.get('window').width;
+  function computeContainer(iw: number, ih: number) {
+    const sw   = Dimensions.get('window').width;
     const maxW = sw - 32;
     const maxH = Dimensions.get('window').height * 0.6;
-    const ratio = cropImgSize.h / cropImgSize.w;
-    let w = maxW;
-    let h = w * ratio;
+    const ratio = ih / iw;
+    let w = maxW, h = w * ratio;
     if (h > maxH) { h = maxH; w = h / ratio; }
     return { w: Math.round(w), h: Math.round(h) };
-  }, [cropImgSize]);
+  }
 
+  // PanResponders are created once (useRef). They read from refs so they
+  // always get the current container / cropBox values.
   const makePanResponder = (handle: string) => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onPanResponderGrant: () => {
       cropBoxRef.current = { ...cropBox };
     },
     onPanResponderMove: (_e, gs) => {
-      const start = cropBoxRef.current;
-      const { w: CW, h: CH } = CROP_CONTAINER;
+      const start       = cropBoxRef.current;
+      const { w: CW, h: CH } = containerRef.current;
       const MIN = 60;
       let { x, y, w, h } = start;
-
       if (handle === 'center') {
         x = Math.max(0, Math.min(CW - w, start.x + gs.dx));
         y = Math.max(0, Math.min(CH - h, start.y + gs.dy));
       } else {
-        if (handle === 'tl' || handle === 'bl' || handle === 'left') {
+        if (handle === 'tl' || handle === 'bl') {
           const nx = Math.max(0, Math.min(start.x + start.w - MIN, start.x + gs.dx));
-          w = start.w - (nx - start.x);
-          x = nx;
+          w = start.w - (nx - start.x); x = nx;
         }
-        if (handle === 'tr' || handle === 'br' || handle === 'right') {
+        if (handle === 'tr' || handle === 'br') {
           w = Math.max(MIN, Math.min(CW - start.x, start.w + gs.dx));
         }
-        if (handle === 'tl' || handle === 'tr' || handle === 'top') {
+        if (handle === 'tl' || handle === 'tr') {
           const ny = Math.max(0, Math.min(start.y + start.h - MIN, start.y + gs.dy));
-          h = start.h - (ny - start.y);
-          y = ny;
+          h = start.h - (ny - start.y); y = ny;
         }
-        if (handle === 'bl' || handle === 'br' || handle === 'bottom') {
+        if (handle === 'bl' || handle === 'br') {
           h = Math.max(MIN, Math.min(CH - start.y, start.h + gs.dy));
         }
       }
@@ -206,25 +208,39 @@ export default function ScanRecipeScreen() {
   const openCrop = () => {
     if (!imageUri || !imageBase64) return;
     Image.getSize(imageUri, (iw, ih) => {
+      // Compute container BEFORE setting state so box init uses correct dims
+      const c = computeContainer(iw, ih);
+      containerRef.current   = c;
+      cropImgSizeRef.current = { w: iw, h: ih };
       setCropImgSize({ w: iw, h: ih });
-      const { w: CW, h: CH } = CROP_CONTAINER;
-      const box = { x: CW * 0.05, y: CH * 0.05, w: CW * 0.9, h: CH * 0.9 };
+      const box = { x: c.w * 0.05, y: c.h * 0.05, w: c.w * 0.9, h: c.h * 0.9 };
       setCropBox(box);
       cropBoxRef.current = box;
       setShowCrop(true);
-    }, () => setShowCrop(true));
+    }, () => {
+      // Fallback if getSize fails — use screen width as square
+      const sw = Dimensions.get('window').width - 32;
+      const c  = { w: sw, h: sw };
+      containerRef.current = c;
+      const box = { x: c.w * 0.05, y: c.h * 0.05, w: c.w * 0.9, h: c.h * 0.9 };
+      setCropBox(box); cropBoxRef.current = box;
+      setShowCrop(true);
+    });
   };
+
+  const CROP_CONTAINER = containerRef.current;   // for rendering only
 
   const applyCrop = async () => {
     if (!imageUri) return;
     setIsCropApplying(true);
-    const { w: CW, h: CH } = CROP_CONTAINER;
-    const sx = cropImgSize.w / CW;
-    const sy = cropImgSize.h / CH;
+    const { w: CW, h: CH } = containerRef.current;
+    const { w: IW, h: IH } = cropImgSizeRef.current;
+    const sx = IW / CW;
+    const sy = IH / CH;
     const originX  = Math.max(0, Math.round(cropBox.x * sx));
     const originY  = Math.max(0, Math.round(cropBox.y * sy));
-    const cropW    = Math.max(10, Math.min(cropImgSize.w - originX, Math.round(cropBox.w * sx)));
-    const cropH    = Math.max(10, Math.min(cropImgSize.h - originY, Math.round(cropBox.h * sy)));
+    const cropW    = Math.max(10, Math.min(IW - originX, Math.round(cropBox.w * sx)));
+    const cropH    = Math.max(10, Math.min(IH - originY, Math.round(cropBox.h * sy)));
     const maxDim   = 1024;
     const scale    = Math.min(1, maxDim / Math.max(cropW, cropH));
     try {
@@ -376,11 +392,9 @@ export default function ScanRecipeScreen() {
         {imageUri && (
           <View>
             <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
-            {Platform.OS !== 'web' && (
-              <TouchableOpacity style={styles.cropBtn} onPress={openCrop}>
-                <Text style={styles.cropBtnText}>✂️  Crop Photo</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={styles.cropBtn} onPress={openCrop}>
+              <Text style={styles.cropBtnText}>✂️  Crop Photo</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -440,16 +454,14 @@ export default function ScanRecipeScreen() {
         <LangPickerModal visible={showOutPicker} selected={outputLang}
           title="Output language" onSelect={setOutputLang} onClose={() => setShowOutPicker(false)} />
 
-        {Platform.OS !== 'web' && (
-          <CropModal
-            visible={showCrop} imageUri={imageUri}
-            panTL={panTL} panTR={panTR} panBL={panBL} panBR={panBR} panCenter={panCenter}
-            cropBox={cropBox} container={CROP_CONTAINER}
-            isCropApplying={isCropApplying}
-            onApply={applyCrop} onCancel={() => setShowCrop(false)}
-            theme={theme}
-          />
-        )}
+        <CropModal
+          visible={showCrop} imageUri={imageUri}
+          panTL={panTL} panTR={panTR} panBL={panBL} panBR={panBR} panCenter={panCenter}
+          cropBox={cropBox} container={CROP_CONTAINER}
+          isCropApplying={isCropApplying}
+          onApply={applyCrop} onCancel={() => setShowCrop(false)}
+          theme={theme}
+        />
       </ScrollView>
     );
   }
