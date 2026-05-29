@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView, FlatList,
-  StyleSheet, Alert, ActivityIndicator, Modal,
+  StyleSheet, Alert, ActivityIndicator, Modal, PanResponder,
+  Dimensions, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -140,6 +141,111 @@ export default function ScanRecipeScreen() {
   const [showSrcPicker, setShowSrcPicker] = useState(false);
   const [showOutPicker, setShowOutPicker] = useState(false);
 
+  // ── Crop state ───────────────────────────────────────────────────────────────
+  const [showCrop, setShowCrop]         = useState(false);
+  const [cropImgSize, setCropImgSize]   = useState({ w: 1, h: 1 });
+  const [cropBox, setCropBox]           = useState({ x: 0, y: 0, w: 0, h: 0 });
+  const cropBoxRef                      = useRef({ x: 0, y: 0, w: 0, h: 0 });
+  const [isCropApplying, setIsCropApplying] = useState(false);
+
+  const CROP_CONTAINER = useMemo(() => {
+    const sw = Dimensions.get('window').width;
+    const maxW = sw - 32;
+    const maxH = Dimensions.get('window').height * 0.6;
+    const ratio = cropImgSize.h / cropImgSize.w;
+    let w = maxW;
+    let h = w * ratio;
+    if (h > maxH) { h = maxH; w = h / ratio; }
+    return { w: Math.round(w), h: Math.round(h) };
+  }, [cropImgSize]);
+
+  const makePanResponder = (handle: string) => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      cropBoxRef.current = { ...cropBox };
+    },
+    onPanResponderMove: (_e, gs) => {
+      const start = cropBoxRef.current;
+      const { w: CW, h: CH } = CROP_CONTAINER;
+      const MIN = 60;
+      let { x, y, w, h } = start;
+
+      if (handle === 'center') {
+        x = Math.max(0, Math.min(CW - w, start.x + gs.dx));
+        y = Math.max(0, Math.min(CH - h, start.y + gs.dy));
+      } else {
+        if (handle === 'tl' || handle === 'bl' || handle === 'left') {
+          const nx = Math.max(0, Math.min(start.x + start.w - MIN, start.x + gs.dx));
+          w = start.w - (nx - start.x);
+          x = nx;
+        }
+        if (handle === 'tr' || handle === 'br' || handle === 'right') {
+          w = Math.max(MIN, Math.min(CW - start.x, start.w + gs.dx));
+        }
+        if (handle === 'tl' || handle === 'tr' || handle === 'top') {
+          const ny = Math.max(0, Math.min(start.y + start.h - MIN, start.y + gs.dy));
+          h = start.h - (ny - start.y);
+          y = ny;
+        }
+        if (handle === 'bl' || handle === 'br' || handle === 'bottom') {
+          h = Math.max(MIN, Math.min(CH - start.y, start.h + gs.dy));
+        }
+      }
+      const next = { x, y, w, h };
+      cropBoxRef.current = next;
+      setCropBox(next);
+    },
+  });
+
+  const panCenter = useRef(makePanResponder('center')).current;
+  const panTL     = useRef(makePanResponder('tl')).current;
+  const panTR     = useRef(makePanResponder('tr')).current;
+  const panBL     = useRef(makePanResponder('bl')).current;
+  const panBR     = useRef(makePanResponder('br')).current;
+
+  const openCrop = () => {
+    if (!imageUri || !imageBase64) return;
+    Image.getSize(imageUri, (iw, ih) => {
+      setCropImgSize({ w: iw, h: ih });
+      const { w: CW, h: CH } = CROP_CONTAINER;
+      const box = { x: CW * 0.05, y: CH * 0.05, w: CW * 0.9, h: CH * 0.9 };
+      setCropBox(box);
+      cropBoxRef.current = box;
+      setShowCrop(true);
+    }, () => setShowCrop(true));
+  };
+
+  const applyCrop = async () => {
+    if (!imageUri) return;
+    setIsCropApplying(true);
+    const { w: CW, h: CH } = CROP_CONTAINER;
+    const sx = cropImgSize.w / CW;
+    const sy = cropImgSize.h / CH;
+    const originX  = Math.max(0, Math.round(cropBox.x * sx));
+    const originY  = Math.max(0, Math.round(cropBox.y * sy));
+    const cropW    = Math.max(10, Math.min(cropImgSize.w - originX, Math.round(cropBox.w * sx)));
+    const cropH    = Math.max(10, Math.min(cropImgSize.h - originY, Math.round(cropBox.h * sy)));
+    const maxDim   = 1024;
+    const scale    = Math.min(1, maxDim / Math.max(cropW, cropH));
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [
+          { crop: { originX, originY, width: cropW, height: cropH } },
+          ...(scale < 1 ? [{ resize: { width: Math.round(cropW * scale) } }] : []),
+        ],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      setImageUri(result.uri);
+      setImageBase64(result.base64 ?? null);
+      setShowCrop(false);
+    } catch (e: any) {
+      Alert.alert('Crop failed', e?.message ?? 'Could not crop.');
+    } finally {
+      setIsCropApplying(false);
+    }
+  };
+
   const requireKey = () => {
     if (!GEMINI_API_KEY) {
       Alert.alert('API Key Missing', 'Set EXPO_PUBLIC_GEMINI_API_KEY in your .env file.');
@@ -268,7 +374,14 @@ export default function ScanRecipeScreen() {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.previewScroll}>
         {imageUri && (
-          <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
+          <View>
+            <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity style={styles.cropBtn} onPress={openCrop}>
+                <Text style={styles.cropBtnText}>✂️  Crop Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {errorMsg && (
@@ -326,6 +439,17 @@ export default function ScanRecipeScreen() {
           title="Recipe language" onSelect={setSourceLang} onClose={() => setShowSrcPicker(false)} />
         <LangPickerModal visible={showOutPicker} selected={outputLang}
           title="Output language" onSelect={setOutputLang} onClose={() => setShowOutPicker(false)} />
+
+        {Platform.OS !== 'web' && (
+          <CropModal
+            visible={showCrop} imageUri={imageUri}
+            panTL={panTL} panTR={panTR} panBL={panBL} panBR={panBR} panCenter={panCenter}
+            cropBox={cropBox} container={CROP_CONTAINER}
+            isCropApplying={isCropApplying}
+            onApply={applyCrop} onCancel={() => setShowCrop(false)}
+            theme={theme}
+          />
+        )}
       </ScrollView>
     );
   }
@@ -388,6 +512,81 @@ export default function ScanRecipeScreen() {
   );
 }
 
+// ── Crop modal (native only) ──────────────────────────────────────────────────
+
+function CropModal({ visible, imageUri, panTL, panTR, panBL, panBR, panCenter, cropBox, container, isCropApplying, onApply, onCancel, theme }: {
+  visible: boolean; imageUri: string | null;
+  panTL: any; panTR: any; panBL: any; panBR: any; panCenter: any;
+  cropBox: { x: number; y: number; w: number; h: number };
+  container: { w: number; h: number };
+  isCropApplying: boolean;
+  onApply: () => void; onCancel: () => void;
+  theme: ThemeColors;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onCancel}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#111' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#333' }}>
+          <TouchableOpacity onPress={onCancel} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={{ color: '#aaa', fontSize: 16, fontWeight: '600' }}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>Crop Photo</Text>
+          {isCropApplying
+            ? <ActivityIndicator color={theme.primary} />
+            : <TouchableOpacity onPress={onApply} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={{ color: theme.primary, fontSize: 16, fontWeight: '700' }}>Done</Text>
+              </TouchableOpacity>
+          }
+        </View>
+
+        {/* Image + crop overlay */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          {imageUri && (
+            <View style={{ width: container.w, height: container.h, position: 'relative' }}>
+              <Image source={{ uri: imageUri }} style={{ width: container.w, height: container.h }} resizeMode="contain" />
+
+              {/* Dark overlay cutouts */}
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: cropBox.y, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              <View style={{ position: 'absolute', top: cropBox.y + cropBox.h, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              <View style={{ position: 'absolute', top: cropBox.y, left: 0, width: cropBox.x, height: cropBox.h, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              <View style={{ position: 'absolute', top: cropBox.y, left: cropBox.x + cropBox.w, right: 0, height: cropBox.h, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+
+              {/* Crop border */}
+              <View style={{ position: 'absolute', left: cropBox.x, top: cropBox.y, width: cropBox.w, height: cropBox.h, borderWidth: 2, borderColor: theme.primary }} />
+
+              {/* Centre drag */}
+              <View {...panCenter.panHandlers} style={{ position: 'absolute', left: cropBox.x + 30, top: cropBox.y + 30, width: Math.max(0, cropBox.w - 60), height: Math.max(0, cropBox.h - 60) }} />
+
+              {/* Corner handles — 44×44 touch targets */}
+              {([['tl', panTL, cropBox.x - 22, cropBox.y - 22],
+                 ['tr', panTR, cropBox.x + cropBox.w - 22, cropBox.y - 22],
+                 ['bl', panBL, cropBox.x - 22, cropBox.y + cropBox.h - 22],
+                 ['br', panBR, cropBox.x + cropBox.w - 22, cropBox.y + cropBox.h - 22],
+              ] as [string, any, number, number][]).map(([key, pan, left, top]) => (
+                <View key={key} {...pan.panHandlers}
+                  style={{ position: 'absolute', left, top, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{
+                    width: 20, height: 20, borderColor: theme.primary,
+                    borderTopWidth: key.includes('t') ? 3 : 0,
+                    borderBottomWidth: key.includes('b') ? 3 : 0,
+                    borderLeftWidth: key.includes('l') ? 3 : 0,
+                    borderRightWidth: key.includes('r') ? 3 : 0,
+                  }} />
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <Text style={{ color: '#666', textAlign: 'center', fontSize: 13, paddingBottom: 20 }}>
+          Drag corners to resize • Drag centre to move
+        </Text>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 function makeStyles(theme: ThemeColors) {
@@ -423,6 +622,14 @@ function makeStyles(theme: ThemeColors) {
     preview:      { width: '100%', height: 300, backgroundColor: '#000' },
     previewSmall: { width: '100%', height: 180, backgroundColor: '#000', borderRadius: 12, marginBottom: 16 },
     actionRow:    { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 8 },
+
+    cropBtn: {
+      alignSelf: 'flex-end', margin: 10,
+      backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 20,
+      paddingVertical: 8, paddingHorizontal: 16,
+      borderWidth: 1, borderColor: theme.primary,
+    },
+    cropBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 
     errorBanner:      { backgroundColor: '#FFEBEE', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: '#EF9A9A' },
     errorBannerTitle: { fontSize: 14, fontWeight: '700', color: '#C62828', marginBottom: 4 },

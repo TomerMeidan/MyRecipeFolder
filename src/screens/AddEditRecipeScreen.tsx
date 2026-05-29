@@ -354,12 +354,14 @@ function makeStyles(theme: ThemeColors) {
     },
 
     ingredientHeader: { flexDirection: 'row', marginBottom: 6 },
-    colLabel: { fontSize: 11, color: theme.textSecondary, fontWeight: '600', textTransform: 'uppercase' },
+    colLabel: { fontSize: 11, color: theme.textSecondary, fontWeight: '600', textTransform: 'uppercase', minWidth: 0 },
 
-    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
+    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 4 },
     inlineInput: {
       borderWidth: 1, borderColor: theme.border, borderRadius: 8,
       padding: 8, fontSize: 14, color: theme.text, backgroundColor: theme.background,
+      // minWidth:0 allows flex items to shrink below content width on web
+      minWidth: 0,
     },
     removeBtn: { width: 26, alignItems: 'center' },
     removeBtnText: { fontSize: 14, color: theme.textSecondary },
