@@ -384,5 +384,8 @@ function guessCategory(text: string): RecipeCategory {
   if (/\bvegetable\b|\bvegan\b|\bvegetarian\b|\btofu\b|\blentil\b|\bchickpea\b|\blegume\b|ירקות|טבעוני|צמחוני|טופו|עדשים|חומוס/.test(t))
     return 'Vegetarian';
 
+  if (/\bprotein\b|\bwhey\b|egg white|turkey breast|cottage cheese|greek yogurt|חלבון|גבינת קוטג|יוגורט יווני|חזה הודו|חלבוני/.test(t))
+    return 'High Protein';
+
   return 'Other';
 }
