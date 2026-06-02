@@ -19,6 +19,7 @@ export type RecipeCategory =
   | 'Dessert'
   | 'Soup'
   | 'Salad'
+  | 'High Protein'
   | 'Other';
 
 export interface Recipe {

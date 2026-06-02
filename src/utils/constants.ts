@@ -9,5 +9,6 @@ export const RECIPE_CATEGORIES: RecipeCategory[] = [
   'Dessert',
   'Soup',
   'Salad',
+  'High Protein',
   'Other',
 ];
