@@ -32,7 +32,7 @@ export function createIngredient(partial: Partial<Ingredient> = {}): Ingredient 
 }
 
 export function createStep(order: number, instruction = ''): RecipeStep {
-  return { id: uuidv4(), order, instruction };
+  return { order, instruction };
 }
 
 export function totalTime(recipe: Pick<Recipe, 'prepTime' | 'cookTime'>): number {

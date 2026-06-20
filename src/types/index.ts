@@ -6,7 +6,6 @@ export interface Ingredient {
 }
 
 export interface RecipeStep {
-  id: string;
   order: number;
   instruction: string;
 }

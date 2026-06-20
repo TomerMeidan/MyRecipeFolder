@@ -1,5 +1,3 @@
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import { Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
 
@@ -24,7 +22,7 @@ function toRecipe(row: RecipeRow): Recipe {
   }));
   const steps: RecipeStep[] = (row.steps ?? [])
     .sort((a, b) => a.order_num - b.order_num)
-    .map((s) => ({ id: uuidv4(), order: s.order_num, instruction: s.instruction }));
+    .map((s) => ({ order: s.order_num, instruction: s.instruction }));
 
   return {
     id: row.id, title: row.title, category: row.category as RecipeCategory,
