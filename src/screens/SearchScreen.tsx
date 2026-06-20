@@ -163,8 +163,8 @@ function makeStyles(theme: ThemeColors) {
     searchInput: { flex: 1, fontSize: 15, color: theme.text },
     clearBtn: { fontSize: 14, color: theme.textSecondary, paddingLeft: 8 },
 
-    chipScroll: { backgroundColor: theme.card, maxHeight: 52 },
-    chipContent: { paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row' },
+    chipScroll: { backgroundColor: theme.card, height: 52 },
+    chipContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, gap: 8, flexDirection: 'row', alignItems: 'center' },
     chip: {
       borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
       backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border,
