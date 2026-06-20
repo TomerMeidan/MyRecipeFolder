@@ -12,7 +12,7 @@ A cross-platform recipe management app built with **React Native + Expo**. Save,
 - **Recipe Library** — Store recipes with title, category, ingredients (quantity + unit + name), steps, servings, prep/cook time, and favorite flag
 - **Cloud Sync** — All data stored in Supabase (PostgreSQL) with Row Level Security; recipes are private per user and sync across all devices automatically
 - **Search** — Live search across title, category, and ingredient names with category filter chips
-- **AI Recipe Scanning** — Photograph a handwritten or printed recipe; Gemini 2.5 Flash reads the image directly and extracts structured ingredients and steps
+- **AI Recipe Scanning** — Photograph a handwritten or printed recipe (up to 3 photos per recipe, e.g. multiple pages); Gemini 2.5 Flash reads the images directly and extracts structured ingredients and steps
 - **Multi-language Scanning** — Scan recipes in Hebrew, English, Arabic, French, and more; optionally translate the output to any language
 - **Crop Tool** — Crop the photo before sending to AI for better recognition accuracy
 - **Favorites** — Mark recipes as favorites for quick access
@@ -114,11 +114,12 @@ scripts/
 The Scan tab uses **Gemini 2.5 Flash** to read recipe images directly from the camera or photo library:
 
 1. Take a photo or upload an image (native crop UI available during selection)
-2. Optionally crop the image using the **✂️ Crop Photo** overlay
-3. Select the source language (optional hint for better handwriting recognition)
-4. Choose an output language (optional translation)
-5. Tap **Analyze Recipe** — Gemini reads the image and returns structured JSON
-6. Review and edit the extracted recipe before saving
+2. Optionally add up to 2 more photos (e.g. additional pages) using the thumbnail strip — all images are sent together and merged into one recipe
+3. Optionally crop any photo using the **✂️ Crop Photo** overlay (tap a thumbnail to select it first)
+4. Select the source language (optional hint for better handwriting recognition)
+5. Choose an output language (optional translation)
+6. Tap **Analyze Recipe** — Gemini reads all selected images together and returns structured JSON
+7. Review and edit the extracted recipe before saving
 
 Images are automatically resized to max 1024px and compressed to 70% quality before sending to the API.
 

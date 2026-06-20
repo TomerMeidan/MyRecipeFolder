@@ -11,12 +11,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { ParsedRecipe } from '../utils/recipeParser';
-import { parseRecipeFromImage } from '../utils/aiParser';
+import { parseRecipeFromImages, RecipeImage } from '../utils/aiParser';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+const MAX_IMAGES = 3;
 
 type Step = 'pick' | 'preview' | 'analyzing' | 'done';
 
@@ -131,9 +132,8 @@ export default function ScanRecipeScreen() {
   const { theme } = useTheme();
 
   const [step, setStep]               = useState<Step>('pick');
-  const [imageUri, setImageUri]       = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [imageFileName, setImageFileName] = useState<string | undefined>();
+  const [images, setImages]           = useState<RecipeImage[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [sourceLang, setSourceLang]   = useState('');
   const [outputLang, setOutputLang]   = useState('');
   const [parsed, setParsed]           = useState<ParsedRecipe | null>(null);
@@ -205,9 +205,11 @@ export default function ScanRecipeScreen() {
   const panBL     = useRef(makePanResponder('bl')).current;
   const panBR     = useRef(makePanResponder('br')).current;
 
+  const activeImage = images[activeIndex] ?? null;
+
   const openCrop = () => {
-    if (!imageUri || !imageBase64) return;
-    Image.getSize(imageUri, (iw, ih) => {
+    if (!activeImage) return;
+    Image.getSize(activeImage.uri, (iw, ih) => {
       // Compute container BEFORE setting state so box init uses correct dims
       const c = computeContainer(iw, ih);
       containerRef.current   = c;
@@ -231,7 +233,7 @@ export default function ScanRecipeScreen() {
   const CROP_CONTAINER = containerRef.current;   // for rendering only
 
   const applyCrop = async () => {
-    if (!imageUri) return;
+    if (!activeImage) return;
     setIsCropApplying(true);
     const { w: CW, h: CH } = containerRef.current;
     const { w: IW, h: IH } = cropImgSizeRef.current;
@@ -245,15 +247,16 @@ export default function ScanRecipeScreen() {
     const scale    = Math.min(1, maxDim / Math.max(cropW, cropH));
     try {
       const result = await ImageManipulator.manipulateAsync(
-        imageUri,
+        activeImage.uri,
         [
           { crop: { originX, originY, width: cropW, height: cropH } },
           ...(scale < 1 ? [{ resize: { width: Math.round(cropW * scale) } }] : []),
         ],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
-      setImageUri(result.uri);
-      setImageBase64(result.base64 ?? null);
+      setImages((prev) => prev.map((img, i) =>
+        i === activeIndex ? { ...img, uri: result.uri, base64: result.base64 ?? img.base64 } : img,
+      ));
       setShowCrop(false);
     } catch (e: any) {
       Alert.alert('Crop failed', e?.message ?? 'Could not crop.');
@@ -273,6 +276,8 @@ export default function ScanRecipeScreen() {
   // ── Image picking (allowsEditing = native crop UI built into the picker) ──────
 
   const pickImage = async (fromCamera: boolean) => {
+    if (images.length >= MAX_IMAGES) return;
+
     let result: ImagePicker.ImagePickerResult;
     if (fromCamera) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -302,27 +307,54 @@ export default function ScanRecipeScreen() {
         scale < 1 ? [{ resize: { width: Math.round(asset.width * scale) } }] : [],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
-      setImageUri(compressed.uri);
-      setImageBase64(compressed.base64 ?? null);
-      setImageFileName(asset.fileName ?? undefined);
+      setImages((prev) => {
+        const next = [...prev, {
+          uri: compressed.uri,
+          base64: compressed.base64 ?? '',
+          fileName: asset.fileName ?? undefined,
+        }];
+        setActiveIndex(next.length - 1);
+        return next;
+      });
       setStep('preview');
     }
+  };
+
+  const handleAddMore = () => {
+    if (Platform.OS === 'web') { pickImage(false); return; }
+    Alert.alert('Add Photo', undefined, [
+      { text: 'Take Photo', onPress: () => pickImage(true) },
+      { text: 'Choose from Library', onPress: () => pickImage(false) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) {
+        setStep('pick');
+        setActiveIndex(0);
+      } else {
+        setActiveIndex((cur) => Math.min(cur, next.length - 1));
+      }
+      return next;
+    });
   };
 
   // ── Analyze ───────────────────────────────────────────────────────────────────
 
   const handleAnalyze = async (src = sourceLang, out = outputLang) => {
-    if (!requireKey() || !imageBase64 || !imageUri) return;
+    if (!requireKey() || images.length === 0) return;
     setErrorMsg(null);
     setStep('analyzing');
     try {
-      const result = await parseRecipeFromImage(
-        imageBase64, imageUri, GEMINI_API_KEY,
+      const result = await parseRecipeFromImages(
+        images, GEMINI_API_KEY,
         {
           sourceLanguage: src ? langName(src) : undefined,
           outputLanguage: out ? langName(out) : undefined,
         },
-        imageFileName,
       );
       setParsed(result);
       setStep('done');
@@ -336,7 +368,7 @@ export default function ScanRecipeScreen() {
 
   const handleReset = () => {
     setStep('pick');
-    setImageUri(null); setImageBase64(null); setImageFileName(undefined);
+    setImages([]); setActiveIndex(0);
     setSourceLang(''); setOutputLang(''); setParsed(null); setErrorMsg(null);
   };
 
@@ -362,8 +394,8 @@ export default function ScanRecipeScreen() {
       <View style={styles.container}>
         <Text style={styles.heading}>Scan a Recipe</Text>
         <Text style={styles.subtitle}>
-          Take a photo or upload a recipe page.{'\n'}
-          You can crop the image in the next step.
+          Take a photo or upload a recipe page — add up to {MAX_IMAGES} photos{'\n'}
+          (e.g. multiple pages). You can crop each one in the next step.
         </Text>
         <TouchableOpacity style={styles.primaryBtn} onPress={() => pickImage(true)}>
           <Text style={styles.btnIcon}>📷</Text>
@@ -389,14 +421,40 @@ export default function ScanRecipeScreen() {
   if (step === 'preview') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.previewScroll}>
-        {imageUri && (
+        {activeImage && (
           <View style={styles.previewContainer}>
-            <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
+            <Image source={{ uri: activeImage.uri }} style={styles.preview} resizeMode="contain" />
             <TouchableOpacity style={styles.cropBtn} onPress={openCrop}>
               <Text style={styles.cropBtnText}>✂️  Crop Photo</Text>
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Thumbnail strip — select, remove, or add up to MAX_IMAGES photos */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbStrip}>
+          {images.map((img, i) => (
+            <TouchableOpacity
+              key={img.uri}
+              style={[styles.thumbWrap, i === activeIndex && styles.thumbWrapActive]}
+              onPress={() => setActiveIndex(i)}
+            >
+              <Image source={{ uri: img.uri }} style={styles.thumb} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.thumbRemove}
+                onPress={() => removeImage(i)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.thumbRemoveText}>✕</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+          {images.length < MAX_IMAGES && (
+            <TouchableOpacity style={styles.thumbAdd} onPress={handleAddMore}>
+              <Text style={styles.thumbAddText}>＋</Text>
+              <Text style={styles.thumbAddLabel}>{images.length}/{MAX_IMAGES}</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
 
         {errorMsg && (
           <View style={styles.errorBanner}>
@@ -455,7 +513,7 @@ export default function ScanRecipeScreen() {
           title="Output language" onSelect={setOutputLang} onClose={() => setShowOutPicker(false)} />
 
         <CropModal
-          visible={showCrop} imageUri={imageUri}
+          visible={showCrop} imageUri={activeImage?.uri ?? null}
           panTL={panTL} panTR={panTR} panBL={panBL} panBR={panBR} panCenter={panCenter}
           cropBox={cropBox} container={CROP_CONTAINER}
           isCropApplying={isCropApplying}
@@ -470,8 +528,12 @@ export default function ScanRecipeScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.doneScroll}>
-      {imageUri && (
-        <Image source={{ uri: imageUri }} style={styles.previewSmall} resizeMode="contain" />
+      {images.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.doneThumbRow}>
+          {images.map((img) => (
+            <Image key={img.uri} source={{ uri: img.uri }} style={styles.doneThumb} resizeMode="cover" />
+          ))}
+        </ScrollView>
       )}
 
       {parsed && (
@@ -644,6 +706,28 @@ function makeStyles(theme: ThemeColors) {
       shadowOpacity: 0.4, shadowRadius: 4, elevation: 6,
     },
     cropBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
+    thumbStrip: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+    thumbWrap: {
+      width: 64, height: 64, borderRadius: 10, overflow: 'hidden',
+      borderWidth: 2, borderColor: theme.border, position: 'relative',
+    },
+    thumbWrapActive: { borderColor: theme.primary },
+    thumb: { width: '100%', height: '100%' },
+    thumbRemove: {
+      position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10,
+      backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+    },
+    thumbRemoveText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    thumbAdd: {
+      width: 64, height: 64, borderRadius: 10, borderWidth: 1.5, borderColor: theme.primary,
+      borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.card,
+    },
+    thumbAddText: { fontSize: 22, color: theme.primary, fontWeight: '700', lineHeight: 24 },
+    thumbAddLabel: { fontSize: 10, color: theme.textSecondary, marginTop: 2 },
+
+    doneThumbRow: { flexDirection: 'row', gap: 8, paddingBottom: 16 },
+    doneThumb: { width: 90, height: 90, borderRadius: 10, backgroundColor: '#000' },
 
     errorBanner:      { backgroundColor: '#FFEBEE', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: '#EF9A9A' },
     errorBannerTitle: { fontSize: 14, fontWeight: '700', color: '#C62828', marginBottom: 4 },

@@ -35,7 +35,7 @@ const RECIPE_SCHEMA = {
   required: ['title', 'category', 'ingredients', 'steps'],
 };
 
-const SYSTEM_PROMPT = `You are a recipe extraction expert. You receive an image of a recipe — handwritten, printed, or photographed from a book — and extract it into structured JSON.
+const SYSTEM_PROMPT = `You are a recipe extraction expert. You receive one or more images of a recipe — handwritten, printed, or photographed from a book — and extract it into a single structured JSON recipe.
 
 Rules:
 - title: The recipe name (usually the first prominent heading).
@@ -46,7 +46,9 @@ Rules:
   • name: ingredient name.
 - steps: Each preparation instruction as one complete sentence.
   For serving/plating/tips/notes/storage sections, add "— {Section Name} —" as a separator step before those sentences.
-- Apply visual reasoning to handle difficult handwriting, OCR-like noise, multi-column layouts, and crossed-out text.`;
+- Apply visual reasoning to handle difficult handwriting, OCR-like noise, multi-column layouts, and crossed-out text.
+
+When multiple images are provided, they are all part of the SAME recipe (e.g. consecutive pages, or the front and back of a recipe card) — merge them into one coherent recipe rather than returning duplicates or treating them as separate recipes. The images may not be in reading order; use context (ingredient lists, step numbering, headings) to determine the correct order and avoid repeating content that appears in more than one image.`;
 
 export interface ParseOptions {
   /** BCP-47 code or language name (e.g. "he", "Hebrew") — helps with handwriting recognition */
@@ -55,8 +57,12 @@ export interface ParseOptions {
   outputLanguage?: string;
 }
 
-function buildPrompt(options: ParseOptions): string {
-  const lines = ['Extract the recipe from this image.'];
+function buildPrompt(options: ParseOptions, imageCount: number): string {
+  const lines = [
+    imageCount > 1
+      ? `Extract the recipe from these ${imageCount} images, treating them as one recipe.`
+      : 'Extract the recipe from this image.',
+  ];
 
   if (options.sourceLanguage) {
     lines.push(
@@ -91,15 +97,25 @@ function stripDataUrlPrefix(base64: string): string {
   return idx !== -1 ? base64.slice(idx + 1) : base64;
 }
 
-export async function parseRecipeFromImage(
-  imageBase64: string,
-  uri: string,
+export interface RecipeImage {
+  base64: string;
+  uri: string;
+  fileName?: string;
+}
+
+export async function parseRecipeFromImages(
+  images: RecipeImage[],
   apiKey: string,
   options: ParseOptions = {},
-  fileName?: string,
 ): Promise<ParsedRecipe> {
-  const mimeType = getMimeType(uri, fileName);
-  const cleanBase64 = stripDataUrlPrefix(imageBase64);
+  if (images.length === 0) throw new Error('No images provided');
+
+  const imageParts = images.map((img) => ({
+    inline_data: {
+      mime_type: getMimeType(img.uri, img.fileName),
+      data: stripDataUrlPrefix(img.base64),
+    },
+  }));
 
   const response = await fetch(geminiUrl(apiKey), {
     method: 'POST',
@@ -109,8 +125,8 @@ export async function parseRecipeFromImage(
       contents: [{
         role: 'user',
         parts: [
-          { inline_data: { mime_type: mimeType, data: cleanBase64 } },
-          { text: buildPrompt(options) },
+          ...imageParts,
+          { text: buildPrompt(options, images.length) },
         ],
       }],
       generationConfig: {
