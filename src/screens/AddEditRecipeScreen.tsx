@@ -4,6 +4,8 @@ import {
   StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
 import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
@@ -71,6 +73,16 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     setIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const moveIngredient = (index: number, direction: -1 | 1) => {
+    setIngredients((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
   // ── Step helpers ──────────────────────────────────────────────────────────
 
   const updateStep = (index: number, value: string) => {
@@ -87,6 +99,16 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     setSteps((prev) =>
       prev.filter((_, i) => i !== index).map((step, i) => ({ ...step, order: i + 1 })),
     );
+  };
+
+  const moveStep = (index: number, direction: -1 | 1) => {
+    setSteps((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next.map((step, i) => ({ ...step, order: i + 1 }));
+    });
   };
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -250,6 +272,22 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 placeholder="cup"
                 placeholderTextColor={theme.textSecondary}
               />
+              <View style={styles.moveCol}>
+                <TouchableOpacity
+                  onPress={() => moveIngredient(i, -1)}
+                  disabled={i === 0}
+                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-up" size={16} color={i === 0 ? theme.border : theme.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => moveIngredient(i, 1)}
+                  disabled={i === ingredients.length - 1}
+                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-down" size={16} color={i === ingredients.length - 1 ? theme.border : theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 onPress={() => removeIngredient(i)}
                 style={styles.removeBtn}
@@ -280,6 +318,22 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 placeholderTextColor={theme.textSecondary}
                 multiline
               />
+              <View style={[styles.moveCol, styles.moveColStep]}>
+                <TouchableOpacity
+                  onPress={() => moveStep(i, -1)}
+                  disabled={i === 0}
+                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-up" size={16} color={i === 0 ? theme.border : theme.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => moveStep(i, 1)}
+                  disabled={i === steps.length - 1}
+                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-down" size={16} color={i === steps.length - 1 ? theme.border : theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 onPress={() => removeStep(i)}
                 style={styles.removeBtn}
@@ -367,6 +421,8 @@ function makeStyles(theme: ThemeColors) {
     removeBtnText: { fontSize: 14, color: theme.textSecondary },
     addRowBtn: { marginTop: 6, paddingVertical: 8 },
     addRowBtnText: { fontSize: 14, color: theme.primary, fontWeight: '600' },
+    moveCol: { width: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    moveColStep: { marginTop: 6 },
 
     stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10 },
     stepCircle: {
