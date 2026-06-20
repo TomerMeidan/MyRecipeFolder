@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getStoredTheme, setStoredTheme } from '../utils/themeStorage';
 
 export interface ThemeColors {
   background: string;
@@ -115,8 +116,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [colorScheme, setInternalColorScheme] = useState<ColorSchemeType>('default');
 
-  const toggleDarkMode = () => setIsDarkMode(prev => !prev);
-  const setColorScheme = (scheme: ColorSchemeType) => setInternalColorScheme(scheme);
+  useEffect(() => {
+    getStoredTheme().then((prefs) => {
+      if (!prefs) return;
+      setIsDarkMode(prefs.isDarkMode);
+      setInternalColorScheme(prefs.colorScheme);
+    });
+  }, []);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      setStoredTheme({ isDarkMode: next, colorScheme });
+      return next;
+    });
+  };
+
+  const setColorScheme = (scheme: ColorSchemeType) => {
+    setInternalColorScheme(scheme);
+    setStoredTheme({ isDarkMode, colorScheme: scheme });
+  };
 
   const theme = getThemeColors(isDarkMode, colorScheme);
 

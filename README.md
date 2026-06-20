@@ -16,7 +16,7 @@ A cross-platform recipe management app built with **React Native + Expo**. Save,
 - **Multi-language Scanning** — Scan recipes in Hebrew, English, Arabic, French, and more; optionally translate the output to any language
 - **Crop Tool** — Crop the photo before sending to AI for better recognition accuracy
 - **Favorites** — Mark recipes as favorites for quick access
-- **Dark / Light theme** — Follows system preference
+- **Dark / Light theme** — Toggle dark mode and pick a color scheme; choice is remembered on this device
 
 ---
 
