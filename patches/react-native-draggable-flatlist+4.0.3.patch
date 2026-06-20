@@ -1,0 +1,111 @@
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx b/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
+index e4e861a..3738d38 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
+@@ -70,32 +70,42 @@ function CellRendererComponent<T>(props: Props<T>) {
+   }, [translate, activeKey]);
+ 
+   const updateCellMeasurements = useStableCallback(() => {
+-    const onSuccess: MeasureLayoutOnSuccessCallback = (x, y, w, h) => {
+-      if (isWeb && horizontal) x += scrollOffset.value;
+-      const cellOffset = horizontal ? x : y;
+-      const cellSize = horizontal ? w : h;
+-      cellDataRef.current.set(key, {
+-        measurements: { size: cellSize, offset: cellOffset },
+-      });
+-
+-      size.value = cellSize;
+-      offset.value = cellOffset;
+-    };
+-
+     const onFail = () => {
+       if (propsRef.current?.debug) {
+         console.log(`## on measure fail, index: ${index}`);
+       }
+     };
+ 
+-    const containerNode = containerRef.current;
+-    const viewNode = viewRef.current;
+-    const nodeHandle = containerNode;
++    // patch-package: measureLayout() doesn't resolve native handles correctly
++    // under the New Architecture (Fabric), so compute the relative offset
++    // from two absolute .measure() calls instead.
++    const containerNode = containerRef.current as any;
++    const viewNode = viewRef.current as any;
+ 
+-    if (viewNode && nodeHandle) {
+-      //@ts-ignore
+-      viewNode.measureLayout(nodeHandle, onSuccess, onFail);
++    if (!viewNode?.measure || !containerNode?.measure) {
++      onFail();
++      return;
+     }
++
++    viewNode.measure(
++      (_x: number, _y: number, w: number, h: number, pageX: number, pageY: number) => {
++        containerNode.measure(
++          (_cx: number, _cy: number, _cw: number, _ch: number, containerPageX: number, containerPageY: number) => {
++            let x = pageX - containerPageX;
++            const y = pageY - containerPageY;
++            if (isWeb && horizontal) x += scrollOffset.value;
++            const cellOffset = horizontal ? x : y;
++            const cellSize = horizontal ? w : h;
++            cellDataRef.current.set(key, {
++              measurements: { size: cellSize, offset: cellOffset },
++            });
++
++            size.value = cellSize;
++            offset.value = cellOffset;
++          },
++        );
++      },
++    );
+   });
+ 
+   const onCellLayout = useStableCallback((e?: LayoutChangeEvent) => {
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx
+index 1559352..9fa4cea 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx
+@@ -1,5 +1,5 @@
+ import React, { useRef, useState } from "react";
+-import { findNodeHandle, LogBox } from "react-native";
++import { LogBox } from "react-native";
+ import Animated, {
+   useDerivedValue,
+   useSharedValue,
+@@ -48,16 +48,27 @@ function NestableDraggableFlatListInner<T>(
+   });
+ 
+   const onListContainerLayout = useStableCallback(async ({ containerRef }) => {
+-    const nodeHandle = findNodeHandle(scrollableRef.current);
+-
+-    const onSuccess = (_x: number, y: number) => {
+-      listVerticalOffset.value = y;
+-    };
+     const onFail = () => {
+       console.log("## nested draggable list measure fail");
+     };
+-    //@ts-ignore
+-    containerRef.current.measureLayout(nodeHandle, onSuccess, onFail);
++    // patch-package: measureLayout() doesn't resolve native handles correctly
++    // under the New Architecture (Fabric), so compute the relative offset
++    // from two absolute .measure() calls instead.
++    const containerNode = containerRef.current as any;
++    const scrollableNode = scrollableRef.current as any;
++    if (!containerNode?.measure || !scrollableNode?.measure) {
++      onFail();
++      return;
++    }
++    containerNode.measure(
++      (_x: number, _y: number, _w: number, _h: number, _pageX: number, pageY: number) => {
++        scrollableNode.measure(
++          (_sx: number, _sy: number, _sw: number, _sh: number, _sPageX: number, scrollablePageY: number) => {
++            listVerticalOffset.value = pageY - scrollablePageY;
++          },
++        );
++      },
++    );
+   });
+ 
+   const onDragBegin: DraggableFlatListProps<T>["onDragBegin"] = useStableCallback(

@@ -3,6 +3,10 @@ import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
   StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
+import {
+  NestableScrollContainer, NestableDraggableFlatList, RenderItemParams,
+} from 'react-native-draggable-flatlist';
+import { Ionicons } from '@expo/vector-icons';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
@@ -89,6 +93,9 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     );
   };
 
+  const reorderSteps = (data: RecipeStep[]) =>
+    setSteps(data.map((step, i) => ({ ...step, order: i + 1 })));
+
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
@@ -142,7 +149,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <NestableScrollContainer contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Title */}
         <Text style={styles.label}>Title *</Text>
@@ -226,39 +233,51 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
             <Text style={[styles.colLabel, { flex: 1 }]}>Unit</Text>
             <View style={{ width: 30 }} />
           </View>
-          {ingredients.map((ing, i) => (
-            <View key={ing.id} style={styles.ingredientRow}>
-              <TextInput
-                style={[styles.inlineInput, { flex: 2 }]}
-                value={ing.name}
-                onChangeText={(v) => updateIngredient(i, 'name', v)}
-                placeholder="Ingredient"
-                placeholderTextColor={theme.textSecondary}
-              />
-              <TextInput
-                style={[styles.inlineInput, { flex: 1 }]}
-                value={ing.quantity}
-                onChangeText={(v) => updateIngredient(i, 'quantity', v)}
-                placeholder="1"
-                placeholderTextColor={theme.textSecondary}
-                keyboardType="decimal-pad"
-              />
-              <TextInput
-                style={[styles.inlineInput, { flex: 1 }]}
-                value={ing.unit}
-                onChangeText={(v) => updateIngredient(i, 'unit', v)}
-                placeholder="cup"
-                placeholderTextColor={theme.textSecondary}
-              />
-              <TouchableOpacity
-                onPress={() => removeIngredient(i)}
-                style={styles.removeBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.removeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+          <NestableDraggableFlatList
+            data={ingredients}
+            keyExtractor={(ing) => ing.id}
+            scrollEnabled={false}
+            onDragEnd={({ data }) => setIngredients(data)}
+            renderItem={({ item: ing, getIndex, drag, isActive }: RenderItemParams<Ingredient>) => {
+              const i = getIndex() ?? 0;
+              return (
+                <View style={[styles.ingredientRow, isActive && styles.rowActive]}>
+                  <TouchableOpacity onLongPress={drag} delayLongPress={150} style={styles.dragHandle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="reorder-three" size={20} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={[styles.inlineInput, { flex: 2 }]}
+                    value={ing.name}
+                    onChangeText={(v) => updateIngredient(i, 'name', v)}
+                    placeholder="Ingredient"
+                    placeholderTextColor={theme.textSecondary}
+                  />
+                  <TextInput
+                    style={[styles.inlineInput, { flex: 1 }]}
+                    value={ing.quantity}
+                    onChangeText={(v) => updateIngredient(i, 'quantity', v)}
+                    placeholder="1"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="decimal-pad"
+                  />
+                  <TextInput
+                    style={[styles.inlineInput, { flex: 1 }]}
+                    value={ing.unit}
+                    onChangeText={(v) => updateIngredient(i, 'unit', v)}
+                    placeholder="cup"
+                    placeholderTextColor={theme.textSecondary}
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeIngredient(i)}
+                    style={styles.removeBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.removeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+          />
           <TouchableOpacity style={styles.addRowBtn} onPress={addIngredient}>
             <Text style={styles.addRowBtnText}>+ Add Ingredient</Text>
           </TouchableOpacity>
@@ -267,28 +286,40 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         {/* Steps */}
         <Text style={styles.sectionTitle}>Steps</Text>
         <View style={styles.card}>
-          {steps.map((step, i) => (
-            <View key={i} style={styles.stepRow}>
-              <View style={styles.stepCircle}>
-                <Text style={styles.stepCircleText}>{step.order}</Text>
-              </View>
-              <TextInput
-                style={styles.stepInput}
-                value={step.instruction}
-                onChangeText={(v) => updateStep(i, v)}
-                placeholder={`Step ${step.order}...`}
-                placeholderTextColor={theme.textSecondary}
-                multiline
-              />
-              <TouchableOpacity
-                onPress={() => removeStep(i)}
-                style={styles.removeBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.removeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+          <NestableDraggableFlatList
+            data={steps}
+            keyExtractor={(step) => step.id}
+            scrollEnabled={false}
+            onDragEnd={({ data }) => reorderSteps(data)}
+            renderItem={({ item: step, getIndex, drag, isActive }: RenderItemParams<RecipeStep>) => {
+              const i = getIndex() ?? 0;
+              return (
+                <View style={[styles.stepRow, isActive && styles.rowActive]}>
+                  <TouchableOpacity onLongPress={drag} delayLongPress={150} style={[styles.dragHandle, styles.dragHandleStep]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="reorder-three" size={20} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                  <View style={styles.stepCircle}>
+                    <Text style={styles.stepCircleText}>{step.order}</Text>
+                  </View>
+                  <TextInput
+                    style={styles.stepInput}
+                    value={step.instruction}
+                    onChangeText={(v) => updateStep(i, v)}
+                    placeholder={`Step ${step.order}...`}
+                    placeholderTextColor={theme.textSecondary}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeStep(i)}
+                    style={styles.removeBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.removeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+          />
           <TouchableOpacity style={styles.addRowBtn} onPress={addStep}>
             <Text style={styles.addRowBtnText}>+ Add Step</Text>
           </TouchableOpacity>
@@ -306,7 +337,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
           }
         </TouchableOpacity>
 
-      </ScrollView>
+      </NestableScrollContainer>
     </KeyboardAvoidingView>
   );
 }
@@ -356,7 +387,7 @@ function makeStyles(theme: ThemeColors) {
     ingredientHeader: { flexDirection: 'row', marginBottom: 6 },
     colLabel: { fontSize: 11, color: theme.textSecondary, fontWeight: '600', textTransform: 'uppercase', minWidth: 0 },
 
-    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 4 },
+    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 4, backgroundColor: theme.card },
     inlineInput: {
       borderWidth: 1, borderColor: theme.border, borderRadius: 8,
       padding: 8, fontSize: 14, color: theme.text, backgroundColor: theme.background,
@@ -367,8 +398,11 @@ function makeStyles(theme: ThemeColors) {
     removeBtnText: { fontSize: 14, color: theme.textSecondary },
     addRowBtn: { marginTop: 6, paddingVertical: 8 },
     addRowBtnText: { fontSize: 14, color: theme.primary, fontWeight: '600' },
+    dragHandle: { width: 24, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dragHandleStep: { marginTop: 6 },
+    rowActive: { opacity: 0.85, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
 
-    stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10 },
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10, backgroundColor: theme.card },
     stepCircle: {
       width: 28, height: 28, borderRadius: 14, backgroundColor: theme.primary,
       alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 6,
