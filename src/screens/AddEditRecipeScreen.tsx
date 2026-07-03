@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
   StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -6,6 +6,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 
+import { StackActions } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
 import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
@@ -35,9 +36,17 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [saving, setSaving] = useState(false);
   const [existingRecipe, setExistingRecipe] = useState<Recipe | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error', duration = 3000) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), duration);
+  }, []);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: isEditing ? 'Edit Recipe' : prefill ? 'Review Scanned Recipe' : 'Add Recipe' });
+    navigation.setOptions({ title: isEditing ? 'Edit Recipe' : prefill ? 'Edit Scanned Recipe' : 'Add Recipe' });
   }, [isEditing, prefill]);
 
   useEffect(() => {
@@ -141,13 +150,19 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
       if (isEditing) {
         await updateRecipe(recipe);
-        navigation.goBack();
+        showToast('Recipe updated!', 'success');
+        setTimeout(() => navigation.goBack(), 1200);
       } else {
         await insertRecipe(recipe);
-        navigation.goBack();
+        showToast('Recipe saved!', 'success');
+        if (prefill) {
+          setTimeout(() => navigation.dispatch(StackActions.replace('ScanRecipe')), 1500);
+        } else {
+          setTimeout(() => navigation.goBack(), 1200);
+        }
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not save the recipe. Please try again.');
+      showToast('Could not save the recipe. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -160,6 +175,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   }
 
   return (
+    <View style={styles.container}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -348,7 +364,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Save button */}
+        {/* Save */}
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -362,6 +378,14 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
       </ScrollView>
     </KeyboardAvoidingView>
+
+    {toast && (
+      <TouchableOpacity style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]} onPress={() => setToast(null)} activeOpacity={0.9}>
+        <Text style={styles.toastText}>{toast.message}</Text>
+        <Text style={styles.toastDismiss}>Tap to dismiss</Text>
+      </TouchableOpacity>
+    )}
+    </View>
   );
 }
 
@@ -442,5 +466,17 @@ function makeStyles(theme: ThemeColors) {
     },
     saveButtonDisabled: { opacity: 0.6 },
     saveButtonText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+
+    toast: {
+      position: 'absolute', bottom: 40, left: 24, right: 24,
+      borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18,
+      alignItems: 'center',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2, shadowRadius: 8, elevation: 8,
+    },
+    toastSuccess: { backgroundColor: '#2E7D32' },
+    toastError:   { backgroundColor: '#C62828' },
+    toastText:    { fontSize: 15, fontWeight: '700', color: '#fff', textAlign: 'center' },
+    toastDismiss: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   });
 }

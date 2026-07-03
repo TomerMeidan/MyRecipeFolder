@@ -10,7 +10,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { ParsedRecipe } from '../utils/recipeParser';
 import { parseRecipeFromImages, RecipeImage } from '../utils/aiParser';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
@@ -19,7 +18,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
 const MAX_IMAGES = 3;
 
-type Step = 'pick' | 'preview' | 'analyzing' | 'done';
+type Step = 'pick' | 'preview' | 'analyzing';
 
 // ── Language options ──────────────────────────────────────────────────────────
 
@@ -136,7 +135,6 @@ export default function ScanRecipeScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [sourceLang, setSourceLang]   = useState('');
   const [outputLang, setOutputLang]   = useState('');
-  const [parsed, setParsed]           = useState<ParsedRecipe | null>(null);
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
   const [showSrcPicker, setShowSrcPicker] = useState(false);
   const [showOutPicker, setShowOutPicker] = useState(false);
@@ -356,8 +354,8 @@ export default function ScanRecipeScreen() {
           outputLanguage: out ? langName(out) : undefined,
         },
       );
-      setParsed(result);
-      setStep('done');
+      setStep('preview');
+      navigation.navigate('AddEditRecipe', { prefill: result });
     } catch (e: any) {
       const msg: string = e?.message ?? 'Unknown error';
       console.error('[Gemini]', msg);
@@ -369,7 +367,7 @@ export default function ScanRecipeScreen() {
   const handleReset = () => {
     setStep('pick');
     setImages([]); setActiveIndex(0);
-    setSourceLang(''); setOutputLang(''); setParsed(null); setErrorMsg(null);
+    setSourceLang(''); setOutputLang(''); setErrorMsg(null);
   };
 
   const styles = makeStyles(theme);
@@ -524,66 +522,6 @@ export default function ScanRecipeScreen() {
     );
   }
 
-  // ── Done ──────────────────────────────────────────────────────────────────────
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.doneScroll}>
-      {images.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.doneThumbRow}>
-          {images.map((img) => (
-            <Image key={img.uri} source={{ uri: img.uri }} style={styles.doneThumb} resizeMode="cover" />
-          ))}
-        </ScrollView>
-      )}
-
-      {parsed && (
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryTitleRow}>
-            <Text style={[styles.summaryTitle, { flex: 1 }]}>{parsed.title || 'Untitled Recipe'}</Text>
-            <View style={styles.aiBadge}>
-              <Text style={styles.aiBadgeText}>🤖 Gemini 2.5 Flash</Text>
-            </View>
-          </View>
-          <View style={styles.pill}>
-            <Text style={styles.pillText}>{parsed.category}</Text>
-          </View>
-          {outputLang ? <Text style={styles.outputLangNote}>📝 Output: {langName(outputLang)}</Text> : null}
-          <Text style={styles.summaryLine}>{parsed.ingredients.length} ingredient{parsed.ingredients.length !== 1 ? 's' : ''}</Text>
-          <Text style={styles.summaryLine}>{parsed.steps.length} step{parsed.steps.length !== 1 ? 's' : ''}</Text>
-        </View>
-      )}
-
-      <View style={styles.reanalyzCard}>
-        <Text style={styles.reanalyzLabel}>Change output language</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
-          {QUICK_OUTPUT.map((l) => {
-            const active = outputLang === l.code;
-            return (
-              <TouchableOpacity key={l.code} style={[styles.quickChip, active && styles.quickChipActive]}
-                onPress={() => { setOutputLang(l.code); handleAnalyze(sourceLang, l.code); }}>
-                <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>{l.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity style={styles.quickChip} onPress={() => setShowOutPicker(true)}>
-            <Text style={styles.quickChipText}>More ▾</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('AddEditRecipe', { prefill: parsed ?? undefined })}>
-        <Text style={styles.primaryBtnText}>Review & Save Recipe →</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.ghostBtn} onPress={handleReset}>
-        <Text style={styles.ghostBtnText}>Scan Another</Text>
-      </TouchableOpacity>
-
-      <LangPickerModal visible={showOutPicker} selected={outputLang}
-        title="Output language"
-        onSelect={(c) => { setOutputLang(c); handleAnalyze(sourceLang, c); }}
-        onClose={() => setShowOutPicker(false)} />
-    </ScrollView>
-  );
 }
 
 // ── Crop modal (native only) ──────────────────────────────────────────────────
@@ -671,7 +609,6 @@ function makeStyles(theme: ThemeColors) {
     statusHint:   { marginTop: 6, fontSize: 13, color: theme.textSecondary },
     statusModel:  { marginTop: 4, fontSize: 11, color: theme.textSecondary, opacity: 0.6 },
     previewScroll: { paddingBottom: 32 },
-    doneScroll:   { padding: 16, paddingBottom: 40 },
 
     heading:  { fontSize: 26, fontWeight: '700', color: theme.text, textAlign: 'center', marginTop: 48, marginBottom: 12 },
     subtitle: { fontSize: 15, color: theme.textSecondary, textAlign: 'center', lineHeight: 22, marginHorizontal: 32, marginBottom: 40 },
@@ -726,9 +663,6 @@ function makeStyles(theme: ThemeColors) {
     thumbAddText: { fontSize: 22, color: theme.primary, fontWeight: '700', lineHeight: 24 },
     thumbAddLabel: { fontSize: 10, color: theme.textSecondary, marginTop: 2 },
 
-    doneThumbRow: { flexDirection: 'row', gap: 8, paddingBottom: 16 },
-    doneThumb: { width: 90, height: 90, borderRadius: 10, backgroundColor: '#000' },
-
     errorBanner:      { backgroundColor: '#FFEBEE', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: '#EF9A9A' },
     errorBannerTitle: { fontSize: 14, fontWeight: '700', color: '#C62828', marginBottom: 4 },
     errorBannerMsg:   { fontSize: 13, color: '#B71C1C', lineHeight: 18 },
@@ -745,17 +679,5 @@ function makeStyles(theme: ThemeColors) {
     quickChipText:      { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
     quickChipTextActive: { color: theme.primary },
 
-    summaryCard:     { backgroundColor: theme.card, borderRadius: 14, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-    summaryTitleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-    summaryTitle:    { fontSize: 19, fontWeight: '700', color: theme.text },
-    aiBadge:         { backgroundColor: '#EDE7F6', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 8, marginTop: 2 },
-    aiBadgeText:     { fontSize: 11, fontWeight: '600', color: '#6A1B9A' },
-    pill:            { alignSelf: 'flex-start', backgroundColor: theme.primaryLight, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 8 },
-    pillText:        { fontSize: 12, color: theme.primary, fontWeight: '500' },
-    outputLangNote:  { fontSize: 13, color: theme.textSecondary, marginBottom: 6 },
-    summaryLine:     { fontSize: 14, color: theme.textSecondary, marginTop: 4 },
-
-    reanalyzCard:  { backgroundColor: theme.card, borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: theme.border },
-    reanalyzLabel: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 },
   });
 }
