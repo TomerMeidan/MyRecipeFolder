@@ -87,10 +87,10 @@ export default function SearchScreen() {
       </View>
 
       {/* Filter chips — favorites toggle + category chips */}
+      <View style={styles.chipScroll}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
         contentContainerStyle={styles.chipContent}
       >
         <TouchableOpacity
@@ -112,6 +112,7 @@ export default function SearchScreen() {
           );
         })}
       </ScrollView>
+      </View>
 
       {/* Results */}
       {loading ? (
@@ -172,8 +173,8 @@ function makeStyles(theme: ThemeColors) {
     searchInput: { flex: 1, fontSize: 15, color: theme.text },
     clearBtn: { fontSize: 14, color: theme.textSecondary, paddingLeft: 8 },
 
-    chipScroll: { backgroundColor: theme.card, height: 60 },
-    chipContent: { paddingHorizontal: 16, paddingVertical: 12, gap: 8, flexDirection: 'row', alignItems: 'center' },
+    chipScroll: { backgroundColor: theme.card, height: 60, justifyContent: 'center' },
+    chipContent: { paddingHorizontal: 16, gap: 8, flexDirection: 'row', alignItems: 'center' },
     chip: {
       borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
       backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border,
