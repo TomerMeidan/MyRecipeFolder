@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const { theme, isDarkMode, toggleDarkMode, colorScheme, setColorScheme } = useTheme();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favOnly, setFavOnly] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,10 +49,12 @@ export default function HomeScreen() {
     );
   }
 
+  const displayed = favOnly ? recipes.filter((r) => r.isFavorite) : recipes;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
-        data={recipes}
+        data={displayed}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <RecipeCard
@@ -59,7 +62,7 @@ export default function HomeScreen() {
             onPress={() => navigation.navigate('RecipeDetail', { recipeId: item.id })}
           />
         )}
-        contentContainerStyle={recipes.length === 0 ? styles.emptyContainer : styles.list}
+        contentContainerStyle={displayed.length === 0 ? styles.emptyContainer : styles.list}
         ListHeaderComponent={
           <View>
             <View style={styles.headingRow}>
@@ -84,13 +87,25 @@ export default function HomeScreen() {
                 />
               ))}
             </View>
+            <View style={styles.filterRow}>
+              <TouchableOpacity
+                style={[styles.filterChip, { backgroundColor: theme.card, borderColor: theme.border }, favOnly && { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}
+                onPress={() => setFavOnly((v) => !v)}
+              >
+                <Text style={[styles.filterChipText, { color: theme.textSecondary }, favOnly && { color: theme.primary }]}>
+                  ♥  Favorites
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyInner}>
-            <Text style={styles.emptyIcon}>🍳</Text>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>No recipes yet</Text>
-            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>Tap + to add your first recipe</Text>
+            <Text style={styles.emptyIcon}>{favOnly ? '♥' : '🍳'}</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>{favOnly ? 'No favorites yet' : 'No recipes yet'}</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+              {favOnly ? 'Mark recipes as favorites to see them here' : 'Tap + to add your first recipe'}
+            </Text>
           </View>
         }
       />
@@ -131,6 +146,19 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
   },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  filterChip: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  filterChipText: { fontSize: 14, fontWeight: '600' },
   modeBtn: {
     width: 36,
     height: 36,

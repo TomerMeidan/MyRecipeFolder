@@ -1,4 +1,28 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -m 5 http://localhost:8081/status)",
+      "Bash(curl -s -m 5 http://localhost:8081 -o /dev/null -w \"%{http_code}\\\\n\")",
+      "Bash(curl -s -m 5 http://localhost:8081/)",
+      "Bash(curl -s -m 5 \"http://localhost:8081/_expo/manifest\")",
+      "PowerShell(Stop-Process -Id 23332 -Force -Confirm:$false; Start-Sleep -Seconds 1; \\(Get-Process -Id 23332 -ErrorAction SilentlyContinue\\) | Out-String)",
+      "Bash(rm -f expo-start.log)",
+      "Bash(nohup npx expo start)",
+      "Bash(npm view *)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx patch-package *)",
+      "Bash(git revert *)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" status)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" diff)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" log --oneline -5)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" add src/screens/ScanRecipeScreen.tsx src/screens/AddEditRecipeScreen.tsx)",
+      "Bash(git -C c:/Users/tommy/source/repos/MyRecipeFolder commit -m ' *)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" push)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" checkout -b feat/home-favorites-filter)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" add src/screens/HomeScreen.tsx)",
+      "Bash(git -C \"c:/Users/tommy/source/repos/MyRecipeFolder\" push -u origin feat/home-favorites-filter)"
+    ]
+  },
   "enabledPlugins": {
     "expo@claude-plugins-official": true
   }
