@@ -20,6 +20,7 @@ export default function SearchScreen() {
 
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | null>(null);
+  const [favOnly, setFavOnly] = useState(false);
   const [results, setResults] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -56,6 +57,8 @@ export default function SearchScreen() {
 
   const clearQuery = () => setQuery('');
 
+  const displayed = favOnly ? results.filter((r) => r.isFavorite) : results;
+
   const styles = makeStyles(theme);
 
   return (
@@ -83,13 +86,19 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Category filter chips */}
+      {/* Filter chips — favorites toggle + category chips */}
+      <View style={styles.chipScroll}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
         contentContainerStyle={styles.chipContent}
       >
+        <TouchableOpacity
+          style={[styles.chip, styles.chipFav, favOnly && styles.chipActive]}
+          onPress={() => setFavOnly((v) => !v)}
+        >
+          <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>♥  Favorites</Text>
+        </TouchableOpacity>
         {RECIPE_CATEGORIES.map((cat) => {
           const active = selectedCategory === cat;
           return (
@@ -103,6 +112,7 @@ export default function SearchScreen() {
           );
         })}
       </ScrollView>
+      </View>
 
       {/* Results */}
       {loading ? (
@@ -111,7 +121,7 @@ export default function SearchScreen() {
         </View>
       ) : (
         <FlatList
-          data={results}
+          data={displayed}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <RecipeCard
@@ -119,13 +129,13 @@ export default function SearchScreen() {
               onPress={() => navigation.navigate('RecipeDetail', { recipeId: item.id })}
             />
           )}
-          contentContainerStyle={results.length === 0 ? styles.emptyContainer : styles.list}
+          contentContainerStyle={displayed.length === 0 ? styles.emptyContainer : styles.list}
           ListHeaderComponent={
             searched && !loading ? (
               <Text style={styles.resultCount}>
-                {results.length === 0
+                {displayed.length === 0
                   ? 'No recipes found'
-                  : `${results.length} recipe${results.length !== 1 ? 's' : ''} found`}
+                  : `${displayed.length} recipe${displayed.length !== 1 ? 's' : ''} found`}
               </Text>
             ) : null
           }
@@ -163,12 +173,13 @@ function makeStyles(theme: ThemeColors) {
     searchInput: { flex: 1, fontSize: 15, color: theme.text },
     clearBtn: { fontSize: 14, color: theme.textSecondary, paddingLeft: 8 },
 
-    chipScroll: { backgroundColor: theme.card, height: 52 },
-    chipContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, gap: 8, flexDirection: 'row', alignItems: 'center' },
+    chipScroll: { backgroundColor: theme.card, height: 60, justifyContent: 'center' },
+    chipContent: { paddingHorizontal: 16, gap: 8, flexDirection: 'row', alignItems: 'center' },
     chip: {
       borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
       backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border,
     },
+    chipFav: { borderColor: theme.primary },
     chipActive: { backgroundColor: theme.primaryLight, borderColor: theme.primary },
     chipText: { fontSize: 13, color: theme.textSecondary, fontWeight: '500' },
     chipTextActive: { color: theme.primary },
