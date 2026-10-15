@@ -2,11 +2,11 @@ import { RecipeCategory } from '../types';
 import { ParsedRecipe } from './recipeParser';
 import { createIngredient, createStep } from './recipe';
 
-// Gemini 2.5 Flash — multimodal, replaces Cloud Vision OCR + Cloud Translate entirely.
+// Gemini 3.8 Flash — multimodal, replaces Cloud Vision OCR + Cloud Translate entirely.
 // The image is sent directly to Gemini which reads it (including handwriting) and
 // returns structured recipe data in the requested output language.
 //
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.8-flash';
 const geminiUrl = (apiKey: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
 

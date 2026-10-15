@@ -16,7 +16,7 @@ import { useTheme, ThemeColors } from '../theme/ThemeContext';
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MAX_IMAGES = 3;
+const MAX_IMAGES = 10;
 
 type Step = 'pick' | 'preview' | 'analyzing';
 
@@ -379,8 +379,8 @@ export default function ScanRecipeScreen() {
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.statusMsg}>Analyzing recipe…</Text>
-        <Text style={styles.statusHint}>🤖 Gemini 2.5 Flash</Text>
-        <Text style={styles.statusModel}>gemini-2.5-flash</Text>
+        <Text style={styles.statusHint}>🤖 Gemini 3.8 Flash</Text>
+        <Text style={styles.statusModel}>gemini-3.8-flash</Text>
       </View>
     );
   }
