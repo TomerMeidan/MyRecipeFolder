@@ -15,7 +15,7 @@ import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+const GEMINI_API_KEY = process.env.EXPO_SECRET_GEMINI_API_KEY ?? '';
 const MAX_IMAGES = 10;
 
 type Step = 'pick' | 'preview' | 'analyzing';
