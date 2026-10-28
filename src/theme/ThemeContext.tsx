@@ -144,7 +144,7 @@ const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [colorScheme, setInternalColorScheme] = useState<ColorSchemeType>('default');
+  const [colorScheme, setInternalColorScheme] = useState<ColorSchemeType>('kitchen');
 
   useEffect(() => {
     getStoredTheme().then((prefs) => {

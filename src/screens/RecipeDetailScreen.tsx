@@ -12,12 +12,9 @@ import { RootStackParamList, Recipe } from '../types';
 import { getRecipeById, deleteRecipe, toggleFavorite } from '../db/recipeRepository';
 import { totalTime } from '../utils/recipe';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { isRtlRecipe } from '../utils/rtl';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
-
-const RTL_LANGS = ['he', 'iw', 'ar', 'fa', 'ur', 'yi'];
-// Saved recipes default to language 'en' even when scanned in Hebrew, so also sniff the title.
-const isRtlRecipe = (r: Recipe) => RTL_LANGS.includes(r.language) || /[֐-ࣿ]/.test(r.title);
 
 export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
@@ -92,9 +89,8 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     return <View style={styles.center}><Text style={styles.errorText}>Recipe not found.</Text></View>;
   }
 
-  const rtl = isRtlRecipe(recipe);
-  const dir = rtl ? styles.rtlText : styles.ltrText;
-  const row = rtl ? styles.rowRtl : styles.rowLtr;
+  // The recipe body follows the recipe's language; rows and text inherit it.
+  const direction = isRtlRecipe(recipe) ? 'rtl' : 'ltr';
 
   const facts = [
     { label: 'Servings', value: recipe.servings, unit: '' },
@@ -105,11 +101,11 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { direction }]}>
 
         {/* Header */}
-        <View style={[styles.titleRow, row]}>
-          <Text style={[styles.title, dir]}>{recipe.title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{recipe.title}</Text>
           <Pressable
             onPress={handleToggleFavorite}
             style={({ pressed }) => [styles.favButton, pressed && styles.pressed]}
@@ -125,7 +121,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
           </Pressable>
         </View>
 
-        <View style={[styles.tag, rtl && styles.tagRtl]}>
+        <View style={styles.tag}>
           <Text style={styles.tagText}>{recipe.category}</Text>
         </View>
 
@@ -155,7 +151,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
               <Pressable
                 key={ing.id}
                 onPress={() => toggleTicked(ing.id)}
-                style={({ pressed }) => [styles.ingredientRow, row, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.ingredientRow, pressed && styles.pressed]}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: done }}
                 accessibilityLabel={[amount, ing.name].filter(Boolean).join(' ')}
@@ -163,15 +159,15 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
                 <View style={[styles.checkbox, done && styles.checkboxOn]}>
                   {done && <Ionicons name="checkmark" size={18} color={theme.onPrimary} />}
                 </View>
-                <View style={[styles.amountCol, rtl ? styles.amountColRtl : styles.amountColLtr]}>
+                <View style={styles.amountCol}>
                   {amount !== '' && (
                     <View>
                       {!done && <View style={styles.mark} />}
-                      <Text style={[styles.amount, dir, done && styles.doneText]}>{amount}</Text>
+                      <Text style={[styles.amount, done && styles.doneText]}>{amount}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.ingredientName, dir, done && styles.doneText]}>{ing.name}</Text>
+                <Text style={[styles.ingredientName, done && styles.doneText]}>{ing.name}</Text>
               </Pressable>
             );
           })
@@ -182,11 +178,11 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
         {recipe.steps.length === 0
           ? <Text style={styles.emptySection}>No steps added.</Text>
           : recipe.steps.map((step) => (
-            <View key={step.order} style={[styles.stepRow, row]}>
+            <View key={step.order} style={styles.stepRow}>
               <View style={styles.stepNumber}>
                 <Text style={styles.stepNumberText}>{step.order}</Text>
               </View>
-              <Text style={[styles.stepText, dir]}>{step.instruction}</Text>
+              <Text style={styles.stepText}>{step.instruction}</Text>
             </View>
           ))
         }
@@ -246,22 +242,17 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
     errorText: { fontSize: 17, color: theme.textSecondary },
     scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 },
 
-    ltrText: { writingDirection: 'ltr', textAlign: 'left' },
-    rtlText: { writingDirection: 'rtl', textAlign: 'right' },
-    rowLtr: { flexDirection: 'row' },
-    rowRtl: { flexDirection: 'row-reverse' },
     pressed: { opacity: 0.6 },
 
     // Header
-    titleRow: { alignItems: 'flex-start', gap: 8 },
-    title: { flex: 1, fontSize: 30, lineHeight: 36, fontWeight: '800', color: theme.text, paddingTop: 4 },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    title: { flex: 1, fontSize: 30, lineHeight: 36, fontWeight: '800', color: theme.text, paddingTop: 4, textAlign: 'auto' },
     favButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
     tag: {
       alignSelf: 'flex-start', marginTop: 10,
       backgroundColor: theme.card, borderRadius: 6,
       paddingHorizontal: 10, paddingVertical: 4,
     },
-    tagRtl: { alignSelf: 'flex-end' },
     tagText: { fontSize: 14, fontWeight: '700', color: theme.textSecondary },
 
     // Facts
@@ -282,7 +273,7 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
 
     // Ingredients
     ingredientRow: {
-      minHeight: 52, alignItems: 'center', gap: 12, paddingVertical: 10,
+      flexDirection: 'row', minHeight: 52, alignItems: 'center', gap: 12, paddingVertical: 10,
       borderBottomWidth: 1, borderBottomColor: theme.border,
     },
     checkbox: {
@@ -291,26 +282,24 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
     },
     checkboxOn: { backgroundColor: theme.primary, borderColor: theme.primary },
     // Fixed width so amounts scan as one column.
-    amountCol: { width: 80 },
-    amountColLtr: { alignItems: 'flex-start' },
-    amountColRtl: { alignItems: 'flex-end' },
+    amountCol: { width: 80, alignItems: 'flex-start' },
     // Highlighter stroke under the bottom ~45% of the amount.
     mark: {
       position: 'absolute', left: -3, right: -3, bottom: 1, height: '45%',
       backgroundColor: theme.highlight, borderRadius: 2,
     },
-    amount: { fontSize: 17, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
-    ingredientName: { flex: 1, fontSize: 17, lineHeight: 24, color: theme.text },
+    amount: { fontSize: 17, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'], textAlign: 'auto' },
+    ingredientName: { flex: 1, fontSize: 17, lineHeight: 24, color: theme.text, textAlign: 'auto' },
     doneText: { color: theme.textSecondary, textDecorationLine: 'line-through' },
 
     // Steps
-    stepRow: { alignItems: 'flex-start', gap: 14, paddingVertical: 12 },
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 12 },
     stepNumber: {
       width: 30, height: 30, borderRadius: 8, marginTop: 2,
       backgroundColor: theme.highlight, alignItems: 'center', justifyContent: 'center',
     },
     stepNumberText: { fontSize: 16, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
-    stepText: { flex: 1, fontSize: 19, lineHeight: 29, color: theme.text },
+    stepText: { flex: 1, fontSize: 19, lineHeight: 29, color: theme.text, textAlign: 'auto' },
 
     // Action bar
     actionBar: {
@@ -341,7 +330,8 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
     modalBtns:    { flexDirection: 'row', gap: 12 },
     modalCancel:  { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1 },
     modalCancelText: { fontSize: 15, fontWeight: '600' },
-    modalDelete:  { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', backgroundColor: '#D32F2F' },
-    modalDeleteText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    // errorText fill with background-coloured text stays >= 4.5:1 in light and dark
+    modalDelete:  { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center', backgroundColor: theme.errorText },
+    modalDeleteText: { fontSize: 15, fontWeight: '700', color: theme.background },
   });
 }

@@ -5,6 +5,7 @@ import {
   Dimensions, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -84,8 +85,8 @@ function LangPickerModal({ visible, selected, includeAuto, title, onSelect, onCl
       <SafeAreaView style={[pickerStyles.sheet, { backgroundColor: theme.card }]}>
         <View style={[pickerStyles.header, { borderBottomColor: theme.border }]}>
           <Text style={[pickerStyles.title, { color: theme.text }]}>{title}</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={[pickerStyles.close, { color: theme.textSecondary }]}>✕</Text>
+          <TouchableOpacity onPress={onClose} style={pickerStyles.close} accessibilityRole="button" accessibilityLabel="Close">
+            <Ionicons name="close" size={24} color={theme.text} />
           </TouchableOpacity>
         </View>
         <FlatList
@@ -95,14 +96,14 @@ function LangPickerModal({ visible, selected, includeAuto, title, onSelect, onCl
             const active = item.code === selected;
             return (
               <TouchableOpacity
-                style={[pickerStyles.row, { borderBottomColor: theme.border }, active && { backgroundColor: theme.primaryLight }]}
+                style={[pickerStyles.row, { borderBottomColor: theme.border }, active && { backgroundColor: theme.highlight }]}
                 onPress={() => { onSelect(item.code); onClose(); }}
               >
-                <Text style={[pickerStyles.rowLabel, { color: theme.text }, active && { color: theme.primary, fontWeight: '600' }]}>
+                <Text style={[pickerStyles.rowLabel, { color: theme.text }, active && { fontWeight: '800' }]}>
                   {item.label}
                 </Text>
                 {item.native ? <Text style={[pickerStyles.rowNative, { color: theme.textSecondary }]}>{item.native}</Text> : null}
-                {active && <Text style={[pickerStyles.rowCheck, { color: theme.primary }]}>✓</Text>}
+                {active && <Ionicons name="checkmark" size={22} color={theme.text} />}
               </TouchableOpacity>
             );
           }}
@@ -116,12 +117,11 @@ const pickerStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet:   { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '60%', paddingBottom: 12 },
   header:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1 },
-  title:   { fontSize: 17, fontWeight: '700' },
-  close:   { fontSize: 16 },
-  row:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  rowLabel:  { fontSize: 15, flex: 1 },
-  rowNative: { fontSize: 14, marginRight: 10 },
-  rowCheck:  { fontSize: 16, fontWeight: '700' },
+  title:   { fontSize: 20, fontWeight: '800' },
+  close:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  row:     { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 16, borderBottomWidth: 1 },
+  rowLabel:  { fontSize: 17, flex: 1 },
+  rowNative: { fontSize: 16, marginEnd: 10 },
 });
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ export default function ScanRecipeScreen() {
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.statusMsg}>Analyzing recipe…</Text>
-        <Text style={styles.statusHint}>🤖 Gemini 3.8 Flash</Text>
+        <Text style={styles.statusHint}>Gemini 3.8 Flash</Text>
         <Text style={styles.statusModel}>gemini-3.8-flash</Text>
       </View>
     );
@@ -395,12 +395,12 @@ export default function ScanRecipeScreen() {
           Take a photo or upload a recipe page — add up to {MAX_IMAGES} photos{'\n'}
           (e.g. multiple pages). You can crop each one in the next step.
         </Text>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => pickImage(true)}>
-          <Text style={styles.btnIcon}>📷</Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => pickImage(true)} accessibilityRole="button">
+          <Ionicons name="camera-outline" size={24} color={theme.onPrimary} />
           <Text style={styles.primaryBtnText}>Take Photo</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryBtn} onPress={() => pickImage(false)}>
-          <Text style={styles.btnIcon}>🖼</Text>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={() => pickImage(false)} accessibilityRole="button">
+          <Ionicons name="images-outline" size={24} color={theme.text} />
           <Text style={styles.secondaryBtnText}>Choose from Library</Text>
         </TouchableOpacity>
         {!GEMINI_API_KEY && (
@@ -422,8 +422,9 @@ export default function ScanRecipeScreen() {
         {activeImage && (
           <View style={styles.previewContainer}>
             <Image source={{ uri: activeImage.uri }} style={styles.preview} resizeMode="contain" />
-            <TouchableOpacity style={styles.cropBtn} onPress={openCrop}>
-              <Text style={styles.cropBtnText}>✂️  Crop Photo</Text>
+            <TouchableOpacity style={styles.cropBtn} onPress={openCrop} accessibilityRole="button">
+              <Ionicons name="crop" size={20} color={theme.onPrimary} />
+              <Text style={styles.cropBtnText}>Crop Photo</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -441,14 +442,16 @@ export default function ScanRecipeScreen() {
                 style={styles.thumbRemove}
                 onPress={() => removeImage(i)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove photo ${i + 1}`}
               >
-                <Text style={styles.thumbRemoveText}>✕</Text>
+                <Ionicons name="close" size={18} color={theme.background} />
               </TouchableOpacity>
             </TouchableOpacity>
           ))}
           {images.length < MAX_IMAGES && (
-            <TouchableOpacity style={styles.thumbAdd} onPress={handleAddMore}>
-              <Text style={styles.thumbAddText}>＋</Text>
+            <TouchableOpacity style={styles.thumbAdd} onPress={handleAddMore} accessibilityRole="button" accessibilityLabel="Add another photo">
+              <Ionicons name="add" size={26} color={theme.text} />
               <Text style={styles.thumbAddLabel}>{images.length}/{MAX_IMAGES}</Text>
             </TouchableOpacity>
           )}
@@ -473,8 +476,9 @@ export default function ScanRecipeScreen() {
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.quickChip} onPress={() => setShowSrcPicker(true)}>
-              <Text style={styles.quickChipText}>More ▾</Text>
+            <TouchableOpacity style={styles.quickChip} onPress={() => setShowSrcPicker(true)} accessibilityRole="button" accessibilityLabel="More recipe languages">
+              <Text style={styles.quickChipText}>More</Text>
+              <Ionicons name="chevron-down" size={16} color={theme.text} />
             </TouchableOpacity>
           </ScrollView>
 
@@ -490,18 +494,20 @@ export default function ScanRecipeScreen() {
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.quickChip} onPress={() => setShowOutPicker(true)}>
-              <Text style={styles.quickChipText}>More ▾</Text>
+            <TouchableOpacity style={styles.quickChip} onPress={() => setShowOutPicker(true)} accessibilityRole="button" accessibilityLabel="More output languages">
+              <Text style={styles.quickChipText}>More</Text>
+              <Ionicons name="chevron-down" size={16} color={theme.text} />
             </TouchableOpacity>
           </ScrollView>
         </View>
 
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.ghostBtn} onPress={handleReset}>
+          <TouchableOpacity style={styles.ghostBtn} onPress={handleReset} accessibilityRole="button">
             <Text style={styles.ghostBtnText}>Retake</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.primaryBtn, styles.flex1]} onPress={() => handleAnalyze()}>
-            <Text style={styles.primaryBtnText}>Analyze Recipe 🤖</Text>
+          <TouchableOpacity style={[styles.primaryBtn, styles.flex1]} onPress={() => handleAnalyze()} accessibilityRole="button">
+            <Ionicons name="sparkles-outline" size={22} color={theme.onPrimary} />
+            <Text style={styles.primaryBtnText}>Analyze Recipe</Text>
           </TouchableOpacity>
         </View>
 
@@ -537,17 +543,17 @@ function CropModal({ visible, imageUri, panTL, panTR, panBL, panBR, panCenter, c
 }) {
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onCancel}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#111' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#333' }}>
-          <TouchableOpacity onPress={onCancel} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={{ color: '#aaa', fontSize: 16, fontWeight: '600' }}>Cancel</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+          <TouchableOpacity onPress={onCancel} style={{ minHeight: 48, minWidth: 64, justifyContent: 'center', paddingHorizontal: 8 }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 17, fontWeight: '700' }}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>Crop Photo</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>Crop Photo</Text>
           {isCropApplying
             ? <ActivityIndicator color={theme.primary} />
-            : <TouchableOpacity onPress={onApply} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={{ color: theme.primary, fontSize: 16, fontWeight: '700' }}>Done</Text>
+            : <TouchableOpacity onPress={onApply} style={{ minHeight: 48, minWidth: 64, justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 8 }}>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Done</Text>
               </TouchableOpacity>
           }
         </View>
@@ -591,7 +597,7 @@ function CropModal({ visible, imageUri, panTL, panTR, panBL, panBR, panCenter, c
           )}
         </View>
 
-        <Text style={{ color: '#666', textAlign: 'center', fontSize: 13, paddingBottom: 20 }}>
+        <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 15, paddingBottom: 20 }}>
           Drag corners to resize • Drag centre to move
         </Text>
       </SafeAreaView>
@@ -605,79 +611,76 @@ function makeStyles(theme: ThemeColors) {
   return StyleSheet.create({
     container:    { flex: 1, backgroundColor: theme.background },
     center:       { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
-    statusMsg:    { marginTop: 16, fontSize: 16, color: theme.text, fontWeight: '600' },
-    statusHint:   { marginTop: 6, fontSize: 13, color: theme.textSecondary },
-    statusModel:  { marginTop: 4, fontSize: 11, color: theme.textSecondary, opacity: 0.6 },
+    statusMsg:    { marginTop: 16, fontSize: 20, color: theme.text, fontWeight: '800' },
+    statusHint:   { marginTop: 6, fontSize: 15, color: theme.textSecondary },
+    statusModel:  { marginTop: 4, fontSize: 13, color: theme.textSecondary },
     previewScroll: { paddingBottom: 32 },
 
-    heading:  { fontSize: 26, fontWeight: '700', color: theme.text, textAlign: 'center', marginTop: 48, marginBottom: 12 },
-    subtitle: { fontSize: 15, color: theme.textSecondary, textAlign: 'center', lineHeight: 22, marginHorizontal: 32, marginBottom: 40 },
+    heading:  { fontSize: 30, fontWeight: '800', color: theme.text, marginTop: 32, marginBottom: 10, marginHorizontal: 16 },
+    subtitle: { fontSize: 17, color: theme.textSecondary, lineHeight: 25, marginHorizontal: 16, marginBottom: 32 },
 
     primaryBtn: {
-      backgroundColor: theme.primary, borderRadius: 14, paddingVertical: 16,
+      backgroundColor: theme.primary, borderRadius: 12, minHeight: 56, gap: 10,
       alignItems: 'center', marginHorizontal: 16, marginBottom: 12,
       flexDirection: 'row', justifyContent: 'center',
     },
-    primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    primaryBtnText: { fontSize: 18, fontWeight: '800', color: theme.onPrimary },
     secondaryBtn: {
-      backgroundColor: theme.card, borderRadius: 14, paddingVertical: 16,
+      borderRadius: 12, minHeight: 56, gap: 10,
       alignItems: 'center', marginHorizontal: 16, marginBottom: 12,
-      borderWidth: 1.5, borderColor: theme.primary, flexDirection: 'row', justifyContent: 'center',
+      borderWidth: 1.5, borderColor: theme.borderStrong, flexDirection: 'row', justifyContent: 'center',
     },
-    secondaryBtnText: { fontSize: 16, fontWeight: '600', color: theme.primary },
-    btnIcon:   { fontSize: 20, marginRight: 10 },
-    ghostBtn:  { paddingVertical: 14, alignItems: 'center', marginHorizontal: 16, marginBottom: 12 },
-    ghostBtnText: { fontSize: 15, color: theme.textSecondary, fontWeight: '500' },
-    flex1:     { flex: 1, marginHorizontal: 8 },
+    secondaryBtnText: { fontSize: 18, fontWeight: '700', color: theme.text },
+    ghostBtn:  { minHeight: 52, paddingHorizontal: 8, justifyContent: 'center', alignItems: 'center' },
+    ghostBtnText: { fontSize: 17, color: theme.text, fontWeight: '700' },
+    flex1:     { flex: 1, marginHorizontal: 0, marginBottom: 0 },
 
+    // Photo letterbox stays black in both themes so scans keep true contrast.
     previewContainer: { width: '100%', height: 300, backgroundColor: '#000', position: 'relative' },
     preview:      { width: '100%', height: 300, backgroundColor: '#000' },
     previewSmall: { width: '100%', height: 180, backgroundColor: '#000', borderRadius: 12, marginBottom: 16 },
-    actionRow:    { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 8 },
+    actionRow:    { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
 
     cropBtn: {
-      position: 'absolute', bottom: 14, right: 14,
-      backgroundColor: theme.primary, borderRadius: 22,
-      paddingVertical: 10, paddingHorizontal: 18,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4, shadowRadius: 4, elevation: 6,
+      position: 'absolute', bottom: 14, end: 14,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: theme.primary, borderRadius: 24,
+      minHeight: 48, paddingHorizontal: 18,
     },
-    cropBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+    cropBtnText: { color: theme.onPrimary, fontSize: 16, fontWeight: '800' },
 
     thumbStrip: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
     thumbWrap: {
-      width: 64, height: 64, borderRadius: 10, overflow: 'hidden',
+      width: 68, height: 68, borderRadius: 10, overflow: 'hidden',
       borderWidth: 2, borderColor: theme.border, position: 'relative',
     },
-    thumbWrapActive: { borderColor: theme.primary },
+    thumbWrapActive: { borderColor: theme.text, borderWidth: 3 },
     thumb: { width: '100%', height: '100%' },
     thumbRemove: {
-      position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10,
-      backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+      position: 'absolute', top: 3, end: 3, width: 26, height: 26, borderRadius: 13,
+      backgroundColor: theme.text, alignItems: 'center', justifyContent: 'center',
     },
-    thumbRemoveText: { color: '#fff', fontSize: 11, fontWeight: '700' },
     thumbAdd: {
-      width: 64, height: 64, borderRadius: 10, borderWidth: 1.5, borderColor: theme.primary,
-      borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.card,
+      width: 68, height: 68, borderRadius: 10, borderWidth: 1.5, borderColor: theme.borderStrong,
+      borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center',
     },
-    thumbAddText: { fontSize: 22, color: theme.primary, fontWeight: '700', lineHeight: 24 },
-    thumbAddLabel: { fontSize: 10, color: theme.textSecondary, marginTop: 2 },
+    thumbAddLabel: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, fontVariant: ['tabular-nums'] },
 
-    errorBanner:      { backgroundColor: '#FFEBEE', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: '#EF9A9A' },
-    errorBannerTitle: { fontSize: 14, fontWeight: '700', color: '#C62828', marginBottom: 4 },
-    errorBannerMsg:   { fontSize: 13, color: '#B71C1C', lineHeight: 18 },
+    errorBanner:      { backgroundColor: theme.errorBox, borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1.5, borderColor: theme.errorText },
+    errorBannerTitle: { fontSize: 17, fontWeight: '800', color: theme.errorText, marginBottom: 4 },
+    errorBannerMsg:   { fontSize: 15, color: theme.errorText, lineHeight: 21 },
 
-    warningBox:  { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 8, borderWidth: 1, borderColor: '#FFD54F' },
-    warningText: { fontSize: 13, color: '#795548', lineHeight: 20 },
+    warningBox:  { backgroundColor: theme.warningBox, borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 8, borderWidth: 1.5, borderColor: theme.warningText },
+    warningText: { fontSize: 15, color: theme.warningText, lineHeight: 21 },
 
-    langCard:      { backgroundColor: theme.card, margin: 16, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.border },
-    langCardLabel: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.4 },
-    langDivider:   { height: 1, backgroundColor: theme.border, marginVertical: 14 },
+    langCard:      { marginHorizontal: 16, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.border },
+    langCardLabel: { fontSize: 17, fontWeight: '800', color: theme.text, marginBottom: 10 },
+    langDivider:   { height: 16 },
     quickRow:      { flexDirection: 'row', gap: 8, paddingBottom: 2 },
-    quickChip:          { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border },
-    quickChipActive:    { backgroundColor: theme.primaryLight, borderColor: theme.primary },
-    quickChipText:      { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
-    quickChipTextActive: { color: theme.primary },
+    quickChip:          { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, borderRadius: 22, paddingHorizontal: 16, borderWidth: 1.5, borderColor: theme.borderStrong },
+    quickChipActive:    { backgroundColor: theme.text, borderColor: theme.text },
+    quickChipText:      { fontSize: 15, color: theme.text, fontWeight: '700' },
+    quickChipTextActive: { color: theme.background },
 
   });
 }
