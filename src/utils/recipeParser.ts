@@ -1,4 +1,4 @@
-import { Ingredient, RecipeStep, RecipeCategory } from '../types';
+import { Ingredient, RecipeStep, RecipeCategory, Nutrition } from '../types';
 import { createIngredient, createStep } from './recipe';
 
 // ── Section header patterns (English + Hebrew) ────────────────────────────────
@@ -192,6 +192,9 @@ export interface ParsedRecipe {
   ingredients: Ingredient[];
   steps: RecipeStep[];
   category: RecipeCategory;
+  servings?: number;
+  caloriesPerServing?: number;
+  nutrition?: Nutrition;
 }
 
 export function parseRecipeText(rawText: string): ParsedRecipe {

@@ -114,5 +114,13 @@ CREATE POLICY "steps: owner access"
 
 REVOKE ALL ON recipes, ingredients, steps FROM anon;
 
+-- ── Calories migration (2026-10) ─────────────────────────────────
+-- Adds an estimated (or hand-entered) calorie count per serving.
+-- Additive only: existing rows get NULL / false. Covered by the policies above.
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS calories_per_serving INTEGER
+  CHECK (calories_per_serving IS NULL OR calories_per_serving BETWEEN 0 AND 10000);
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS nutrition       JSONB;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS calories_manual BOOLEAN NOT NULL DEFAULT false;
+
 -- Verify: every row below must show rowsecurity = true.
 -- SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
