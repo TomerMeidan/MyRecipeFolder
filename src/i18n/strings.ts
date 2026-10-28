@@ -200,7 +200,9 @@ export const en = {
   a11y_calories_show: 'Show calorie breakdown',
   a11y_calories_hide: 'Hide calorie breakdown',
   label_calories: 'Calories per serving',
-  hint_calories: "Optional. Leave it empty and we'll estimate it.",
+  hint_calories: 'Optional. If you leave it empty, you can calculate an estimate on the recipe page.',
+  hint_calories_estimate: 'Current estimate: ≈ {kcal} kcal per serving. Leave it empty to keep it.',
+  calories_total_line: 'Total ≈ {total} kcal ÷ {servings} servings',
   placeholder_calories: 'e.g. 420',
 };
 
@@ -384,7 +386,7 @@ export const he: Record<StringKey, string> = {
   macro_protein: 'חלבון',
   macro_carbs: 'פחמימות',
   macro_fat: 'שומן',
-  gram_unit: "ג'",
+  gram_unit: 'גרם',
   calc_calories: 'חישוב קלוריות',
   recalc_calories: 'חישוב מחדש',
   calc_calories_busy: 'מחשבים…',
@@ -394,7 +396,9 @@ export const he: Record<StringKey, string> = {
   a11y_calories_show: 'הצגת פירוט הקלוריות',
   a11y_calories_hide: 'הסתרת פירוט הקלוריות',
   label_calories: 'קלוריות למנה',
-  hint_calories: 'לא חובה. אם תשאירו ריק, נחשב הערכה.',
+  hint_calories: 'לא חובה. אם תשאירו ריק, תוכלו לחשב הערכה בעמוד המתכון.',
+  hint_calories_estimate: 'ההערכה הנוכחית: כ-{kcal} קק"ל למנה. השאירו ריק כדי לשמור עליה.',
+  calories_total_line: 'סה"כ כ-{total} קק"ל ÷ {servings} מנות',
   placeholder_calories: 'למשל 420',
 };
 
