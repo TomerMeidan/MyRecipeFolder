@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Modal,
+  View, Text, ScrollView, TouchableOpacity, Pressable, Modal,
   StyleSheet, Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -14,6 +15,10 @@ import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
+const RTL_LANGS = ['he', 'iw', 'ar', 'fa', 'ur', 'yi'];
+// Saved recipes default to language 'en' even when scanned in Hebrew, so also sniff the title.
+const isRtlRecipe = (r: Recipe) => RTL_LANGS.includes(r.language) || /[֐-ࣿ]/.test(r.title);
+
 export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
   const { theme } = useTheme();
@@ -22,6 +27,14 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading]       = useState(true);
   const [deleting, setDeleting]     = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  // Ticked-off ingredients while cooking. Screen-local only, never saved.
+  const [ticked, setTicked]         = useState<Set<string>>(new Set());
+
+  const toggleTicked = (id: string) => setTicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -79,79 +92,104 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     return <View style={styles.center}><Text style={styles.errorText}>Recipe not found.</Text></View>;
   }
 
+  const rtl = isRtlRecipe(recipe);
+  const dir = rtl ? styles.rtlText : styles.ltrText;
+  const row = rtl ? styles.rowRtl : styles.rowLtr;
+
+  const facts = [
+    { label: 'Servings', value: recipe.servings, unit: '' },
+    { label: 'Prep',     value: recipe.prepTime, unit: ' min' },
+    { label: 'Cook',     value: recipe.cookTime, unit: ' min' },
+    { label: 'Total',    value: totalTime(recipe), unit: ' min' },
+  ];
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
         {/* Header */}
-        <View style={styles.headerCard}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{recipe.title}</Text>
-            <TouchableOpacity onPress={handleToggleFavorite} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={[styles.heart, recipe.isFavorite && styles.heartActive]}>
-                {recipe.isFavorite ? '♥' : '♡'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        <View style={[styles.titleRow, row]}>
+          <Text style={[styles.title, dir]}>{recipe.title}</Text>
+          <Pressable
+            onPress={handleToggleFavorite}
+            style={({ pressed }) => [styles.favButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={recipe.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            accessibilityState={{ selected: recipe.isFavorite }}
+          >
+            <Ionicons
+              name={recipe.isFavorite ? 'heart' : 'heart-outline'}
+              size={28}
+              color={recipe.isFavorite ? theme.primary : theme.textSecondary}
+            />
+          </Pressable>
+        </View>
 
-          <View style={styles.pill}>
-            <Text style={styles.pillText}>{recipe.category}</Text>
-          </View>
+        <View style={[styles.tag, rtl && styles.tagRtl]}>
+          <Text style={styles.tagText}>{recipe.category}</Text>
+        </View>
 
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaValue}>{recipe.servings}</Text>
-              <Text style={styles.metaLabel}>Servings</Text>
-            </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaItem}>
-              <Text style={styles.metaValue}>{recipe.prepTime} min</Text>
-              <Text style={styles.metaLabel}>Prep</Text>
-            </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaItem}>
-              <Text style={styles.metaValue}>{recipe.cookTime} min</Text>
-              <Text style={styles.metaLabel}>Cook</Text>
-            </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaItem}>
-              <Text style={styles.metaValue}>{totalTime(recipe)} min</Text>
-              <Text style={styles.metaLabel}>Total</Text>
-            </View>
-          </View>
+        {/* Key facts */}
+        <View style={styles.facts}>
+          {facts.map((f, i) => (
+            <React.Fragment key={f.label}>
+              {i > 0 && <View style={styles.factDivider} />}
+              <View style={styles.fact}>
+                <Text style={styles.factValue}>
+                  {f.value}<Text style={styles.factUnit}>{f.unit}</Text>
+                </Text>
+                <Text style={styles.factLabel}>{f.label}</Text>
+              </View>
+            </React.Fragment>
+          ))}
         </View>
 
         {/* Ingredients */}
         <Text style={styles.sectionTitle}>Ingredients</Text>
-        <View style={styles.section}>
-          {recipe.ingredients.length === 0
-            ? <Text style={styles.emptySection}>No ingredients added.</Text>
-            : recipe.ingredients.map((ing) => (
-              <View key={ing.id} style={styles.ingredientRow}>
-                <View style={styles.bullet} />
-                <Text style={styles.ingredientText}>
-                  {[ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ')}
-                </Text>
-              </View>
-            ))
-          }
-        </View>
+        {recipe.ingredients.length === 0
+          ? <Text style={styles.emptySection}>No ingredients added.</Text>
+          : recipe.ingredients.map((ing) => {
+            const done = ticked.has(ing.id);
+            const amount = [ing.quantity, ing.unit].filter(Boolean).join(' ');
+            return (
+              <Pressable
+                key={ing.id}
+                onPress={() => toggleTicked(ing.id)}
+                style={({ pressed }) => [styles.ingredientRow, row, pressed && styles.pressed]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: done }}
+                accessibilityLabel={[amount, ing.name].filter(Boolean).join(' ')}
+              >
+                <View style={[styles.checkbox, done && styles.checkboxOn]}>
+                  {done && <Ionicons name="checkmark" size={18} color={theme.onPrimary} />}
+                </View>
+                <View style={[styles.amountCol, rtl ? styles.amountColRtl : styles.amountColLtr]}>
+                  {amount !== '' && (
+                    <View>
+                      {!done && <View style={styles.mark} />}
+                      <Text style={[styles.amount, dir, done && styles.doneText]}>{amount}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.ingredientName, dir, done && styles.doneText]}>{ing.name}</Text>
+              </Pressable>
+            );
+          })
+        }
 
         {/* Steps */}
-        <Text style={styles.sectionTitle}>How to Make It</Text>
-        <View style={styles.section}>
-          {recipe.steps.length === 0
-            ? <Text style={styles.emptySection}>No steps added.</Text>
-            : recipe.steps.map((step) => (
-              <View key={step.order} style={styles.stepRow}>
-                <View style={styles.stepNumber}>
-                  <Text style={styles.stepNumberText}>{step.order}</Text>
-                </View>
-                <Text style={styles.stepText}>{step.instruction}</Text>
+        <Text style={[styles.sectionTitle, styles.stepsTitle]}>How to Make It</Text>
+        {recipe.steps.length === 0
+          ? <Text style={styles.emptySection}>No steps added.</Text>
+          : recipe.steps.map((step) => (
+            <View key={step.order} style={[styles.stepRow, row]}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>{step.order}</Text>
               </View>
-            ))
-          }
-        </View>
+              <Text style={[styles.stepText, dir]}>{step.instruction}</Text>
+            </View>
+          ))
+        }
 
       </ScrollView>
 
@@ -160,14 +198,20 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
         <TouchableOpacity
           style={styles.editButton}
           onPress={() => navigation.navigate('AddEditRecipe', { recipeId: recipe.id })}
+          accessibilityRole="button"
+          accessibilityLabel="Edit recipe"
         >
+          <Ionicons name="create-outline" size={22} color={theme.onPrimary} />
           <Text style={styles.editButtonText}>Edit Recipe</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
           onPress={handleDelete}
           disabled={deleting}
+          accessibilityRole="button"
+          accessibilityLabel="Delete recipe"
         >
+          <Ionicons name="trash-outline" size={20} color={theme.errorText} />
           <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete'}</Text>
         </TouchableOpacity>
       </View>
@@ -199,85 +243,96 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
-    errorText: { fontSize: 16, color: theme.textSecondary },
-    scroll: { paddingBottom: 100 },
+    errorText: { fontSize: 17, color: theme.textSecondary },
+    scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 },
 
-    headerCard: {
-      backgroundColor: theme.card,
-      margin: 16,
-      borderRadius: 16,
-      padding: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.07,
-      shadowRadius: 4,
-      elevation: 2,
+    ltrText: { writingDirection: 'ltr', textAlign: 'left' },
+    rtlText: { writingDirection: 'rtl', textAlign: 'right' },
+    rowLtr: { flexDirection: 'row' },
+    rowRtl: { flexDirection: 'row-reverse' },
+    pressed: { opacity: 0.6 },
+
+    // Header
+    titleRow: { alignItems: 'flex-start', gap: 8 },
+    title: { flex: 1, fontSize: 30, lineHeight: 36, fontWeight: '800', color: theme.text, paddingTop: 4 },
+    favButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
+    tag: {
+      alignSelf: 'flex-start', marginTop: 10,
+      backgroundColor: theme.card, borderRadius: 6,
+      paddingHorizontal: 10, paddingVertical: 4,
     },
-    titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
-    title: { fontSize: 22, fontWeight: '700', color: theme.text, flex: 1, marginRight: 8 },
-    heart: { fontSize: 26, color: theme.border },
-    heartActive: { color: theme.primary },
-    pill: {
-      alignSelf: 'flex-start',
-      backgroundColor: theme.primaryLight,
-      borderRadius: 20,
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      marginBottom: 16,
+    tagRtl: { alignSelf: 'flex-end' },
+    tagText: { fontSize: 14, fontWeight: '700', color: theme.textSecondary },
+
+    // Facts
+    facts: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: theme.card, borderRadius: 12,
+      paddingVertical: 14, marginTop: 20,
     },
-    pillText: { fontSize: 13, color: theme.primary, fontWeight: '500' },
-    metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    metaItem: { flex: 1, alignItems: 'center' },
-    metaValue: { fontSize: 15, fontWeight: '600', color: theme.text },
-    metaLabel: { fontSize: 11, color: theme.textSecondary, marginTop: 2 },
-    metaDivider: { width: 1, height: 30, backgroundColor: theme.border },
+    fact: { flex: 1, alignItems: 'center' },
+    factValue: { fontSize: 20, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
+    factUnit: { fontSize: 14, fontWeight: '700' },
+    factLabel: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginTop: 2 },
+    factDivider: { width: 1, height: 32, backgroundColor: theme.border },
 
-    sectionTitle: { fontSize: 18, fontWeight: '700', color: theme.text, marginHorizontal: 16, marginBottom: 8, marginTop: 8 },
-    section: {
-      backgroundColor: theme.card,
-      marginHorizontal: 16,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
-      elevation: 1,
+    sectionTitle: { fontSize: 22, fontWeight: '800', color: theme.text, marginTop: 28, marginBottom: 4 },
+    stepsTitle: { marginTop: 32, marginBottom: 8 },
+    emptySection: { fontSize: 17, color: theme.textSecondary, paddingVertical: 12 },
+
+    // Ingredients
+    ingredientRow: {
+      minHeight: 52, alignItems: 'center', gap: 12, paddingVertical: 10,
+      borderBottomWidth: 1, borderBottomColor: theme.border,
     },
-    emptySection: { fontSize: 14, color: theme.textSecondary, fontStyle: 'italic' },
+    checkbox: {
+      width: 26, height: 26, borderRadius: 6, borderWidth: 2, borderColor: theme.borderStrong,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    checkboxOn: { backgroundColor: theme.primary, borderColor: theme.primary },
+    // Fixed width so amounts scan as one column.
+    amountCol: { width: 80 },
+    amountColLtr: { alignItems: 'flex-start' },
+    amountColRtl: { alignItems: 'flex-end' },
+    // Highlighter stroke under the bottom ~45% of the amount.
+    mark: {
+      position: 'absolute', left: -3, right: -3, bottom: 1, height: '45%',
+      backgroundColor: theme.highlight, borderRadius: 2,
+    },
+    amount: { fontSize: 17, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
+    ingredientName: { flex: 1, fontSize: 17, lineHeight: 24, color: theme.text },
+    doneText: { color: theme.textSecondary, textDecorationLine: 'line-through' },
 
-    ingredientRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-    bullet: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.primary, marginRight: 12 },
-    ingredientText: { fontSize: 15, color: theme.text, flex: 1 },
-
-    stepRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
+    // Steps
+    stepRow: { alignItems: 'flex-start', gap: 14, paddingVertical: 12 },
     stepNumber: {
-      width: 28, height: 28, borderRadius: 14,
-      backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center',
-      marginRight: 12, marginTop: 1, flexShrink: 0,
+      width: 30, height: 30, borderRadius: 8, marginTop: 2,
+      backgroundColor: theme.highlight, alignItems: 'center', justifyContent: 'center',
     },
-    stepNumberText: { fontSize: 13, fontWeight: '700', color: '#fff' },
-    stepText: { fontSize: 15, color: theme.text, flex: 1, lineHeight: 22 },
+    stepNumberText: { fontSize: 16, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
+    stepText: { flex: 1, fontSize: 19, lineHeight: 29, color: theme.text },
 
+    // Action bar
     actionBar: {
       position: 'absolute', bottom: 0, left: 0, right: 0,
       flexDirection: 'row', padding: 16,
       paddingBottom: Math.max(bottomInset, 16),
-      backgroundColor: theme.card,
+      backgroundColor: theme.background,
       borderTopWidth: 1, borderTopColor: theme.border,
       gap: 12,
     },
     editButton: {
-      flex: 1, backgroundColor: theme.primary, borderRadius: 12,
-      paddingVertical: 14, alignItems: 'center',
+      flex: 1, minHeight: 52, flexDirection: 'row', gap: 8,
+      backgroundColor: theme.primary, borderRadius: 12,
+      alignItems: 'center', justifyContent: 'center',
     },
-    editButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+    editButtonText: { fontSize: 17, fontWeight: '800', color: theme.onPrimary },
     deleteButton: {
-      backgroundColor: theme.primaryLight, borderRadius: 12,
-      paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center',
+      minHeight: 52, flexDirection: 'row', gap: 6,
+      borderWidth: 1.5, borderColor: theme.borderStrong, borderRadius: 12,
+      paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center',
     },
-    deleteButtonText: { fontSize: 16, fontWeight: '600', color: theme.primary },
+    deleteButtonText: { fontSize: 17, fontWeight: '700', color: theme.errorText },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
     modalBox:     { borderRadius: 16, padding: 24, width: '85%', maxWidth: 380 },

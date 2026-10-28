@@ -18,6 +18,7 @@ const SCHEME_COLORS: Array<{ key: ColorSchemeType; color: string }> = [
   { key: 'blue',    color: '#2563EB' },
   { key: 'black',   color: '#0F172A' },
   { key: 'white',   color: '#94A3B8' },
+  { key: 'kitchen', color: '#FFE45C' },
 ];
 
 export default function HomeScreen() {

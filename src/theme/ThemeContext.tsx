@@ -14,9 +14,29 @@ export interface ThemeColors {
   warningText: string;
   errorBox: string;
   errorText: string;
+  /** Text/icon colour on a `primary` fill. */
+  onPrimary: string;
+  /** Marker fill behind what matters (quantities, step numbers); `text` reads on it. */
+  highlight: string;
+  /** Border for controls that must stay visible (checkboxes, outline buttons). */
+  borderStrong: string;
 }
 
-export type ColorSchemeType = 'default' | 'blue' | 'black' | 'white';
+export type ColorSchemeType = 'default' | 'blue' | 'black' | 'white' | 'kitchen';
+
+// Kitchen Mode: arm's-length reading, high contrast, yellow highlighter.
+const KITCHEN_LIGHT: ThemeColors = {
+  background: '#FFFFFF', card: '#F3F3F0', text: '#111111', textSecondary: '#4A4A48',
+  primary: '#111111', primaryLight: '#FFF6C2', onPrimary: '#FFFFFF',
+  highlight: '#FFE45C', border: '#E2E2DE', borderStrong: '#8A8A86', shadow: 'rgba(0, 0, 0, 0.05)',
+  warningBox: '#FFF8E1', warningText: '#795548', errorBox: '#FFEBEE', errorText: '#C62828',
+};
+const KITCHEN_DARK: ThemeColors = {
+  background: '#0C0C0D', card: '#1B1B1D', text: '#F5F5F3', textSecondary: '#B5B5B0',
+  primary: '#FFE45C', primaryLight: '#2E2A12', onPrimary: '#111111',
+  highlight: '#5C5016', border: '#2C2C2F', borderStrong: '#6A6A66', shadow: '#000000',
+  warningBox: '#2E2514', warningText: '#F59E0B', errorBox: '#3B1B1B', errorText: '#EF4444',
+};
 
 interface ThemeContextProps {
   theme: ThemeColors;
@@ -27,6 +47,8 @@ interface ThemeContextProps {
 }
 
 const getThemeColors = (isDark: boolean, scheme: ColorSchemeType): ThemeColors => {
+  if (scheme === 'kitchen') return isDark ? KITCHEN_DARK : KITCHEN_LIGHT;
+
   let primary = '#E05C2D';
   let primaryLight = '#FFF0EB';
   
@@ -60,14 +82,19 @@ const getThemeColors = (isDark: boolean, scheme: ColorSchemeType): ThemeColors =
       border = '#334155';
     }
 
+    const darkPrimaryLight = scheme === 'default' ? '#3B1E16' : primaryLight;
     return {
       background,
       card,
       text: '#F8FAFC',
       textSecondary: '#94A3B8',
       primary,
-      primaryLight: scheme === 'default' ? '#3B1E16' : primaryLight,
+      primaryLight: darkPrimaryLight,
+      // black/white dark schemes use a near-white primary, so text on it must be dark
+      onPrimary: scheme === 'black' || scheme === 'white' ? '#0F172A' : '#FFFFFF',
+      highlight: darkPrimaryLight,
       border,
+      borderStrong: '#64748B',
       shadow: '#000000',
       warningBox: '#2E2514',
       warningText: '#F59E0B',
@@ -100,7 +127,10 @@ const getThemeColors = (isDark: boolean, scheme: ColorSchemeType): ThemeColors =
       textSecondary: '#64748B',
       primary,
       primaryLight,
+      onPrimary: '#FFFFFF',
+      highlight: primaryLight,
       border,
+      borderStrong: '#94A3B8',
       shadow: 'rgba(0, 0, 0, 0.05)',
       warningBox: '#FFF8E1',
       warningText: '#795548',
