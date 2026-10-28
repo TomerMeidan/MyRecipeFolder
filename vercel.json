@@ -2,13 +2,19 @@
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/" }],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" }
       ]
     }
   ]

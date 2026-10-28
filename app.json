@@ -17,11 +17,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
+      "package": "com.anonymous.MyRecipeFolder",
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.anonymous.MyRecipeFolder"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,7 +34,8 @@
           "cameraPermission": "Allow MyRecipeFolder to use the camera to scan recipe pages."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ]
   }
 }

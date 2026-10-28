@@ -74,3 +74,45 @@ CREATE POLICY "steps: owner access"
         AND recipes.user_id = auth.uid()
     )
   );
+
+-- ── Security hardening migration (2026-10) ────────────────────────
+-- Safe to run on an existing database (idempotent). Run it once in the
+-- Supabase SQL Editor after the schema above.
+--
+-- 1. Policies apply to signed-in users only, and child rows get an explicit
+--    WITH CHECK so a row can never be inserted/moved under someone else's recipe.
+-- 2. The anon role (requests without a user session) gets no table access at all.
+-- No Storage buckets are used by the app (photo_uri is a local device URI);
+-- if you add one later, give it storage.objects policies scoped to auth.uid().
+
+ALTER TABLE recipes     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE steps       ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "recipes: owner access"     ON recipes;
+DROP POLICY IF EXISTS "ingredients: owner access" ON ingredients;
+DROP POLICY IF EXISTS "steps: owner access"       ON steps;
+
+CREATE POLICY "recipes: owner access"
+  ON recipes FOR ALL TO authenticated
+  USING      ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+CREATE POLICY "ingredients: owner access"
+  ON ingredients FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM recipes
+                 WHERE recipes.id = ingredients.recipe_id AND recipes.user_id = (SELECT auth.uid())))
+  WITH CHECK (EXISTS (SELECT 1 FROM recipes
+                 WHERE recipes.id = ingredients.recipe_id AND recipes.user_id = (SELECT auth.uid())));
+
+CREATE POLICY "steps: owner access"
+  ON steps FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM recipes
+                 WHERE recipes.id = steps.recipe_id AND recipes.user_id = (SELECT auth.uid())))
+  WITH CHECK (EXISTS (SELECT 1 FROM recipes
+                 WHERE recipes.id = steps.recipe_id AND recipes.user_id = (SELECT auth.uid())));
+
+REVOKE ALL ON recipes, ingredients, steps FROM anon;
+
+-- Verify: every row below must show rowsecurity = true.
+-- SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
