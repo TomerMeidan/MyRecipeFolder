@@ -210,6 +210,8 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   // The form follows the UI language; each free-text field aligns to its own content,
   // so a Hebrew recipe reads right-aligned even in an English UI (and vice versa).
   const align = (v: string) => ({ textAlign: isRtlText(v) ? 'right' : 'left' } as const);
+  // Same rule as save: an estimate only survives if ingredients and servings are unchanged.
+  const liveEstimate = estimate && estimate.key === nutritionKey(ingredients, Math.max(1, parseInt(servings) || 1)) ? estimate : null;
 
   return (
     <View style={styles.container}>
@@ -293,11 +295,15 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
           onChangeText={(v) => setCalories(v.replace(/[^0-9]/g, ''))}
           keyboardType="number-pad"
           maxLength={5}
-          placeholder={estimate ? `≈ ${estimate.caloriesPerServing}` : t('placeholder_calories')}
+          placeholder={t('placeholder_calories')}
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel={t('label_calories')}
         />
-        <Text style={styles.hint}>{t('hint_calories')}</Text>
+        <Text style={styles.hint}>
+          {liveEstimate
+            ? t('hint_calories_estimate', { kcal: liveEstimate.caloriesPerServing })
+            : t('hint_calories')}
+        </Text>
 
         {/* Favorite toggle */}
         <TouchableOpacity

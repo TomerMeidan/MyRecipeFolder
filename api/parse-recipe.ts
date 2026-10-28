@@ -64,21 +64,30 @@ ${NUTRITION_RULES}`;
 const inRange = (v: unknown, max: number): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
 
-/** Model output is untrusted: keep only well-formed, in-range numbers. Returns null if the estimate is unusable. */
-function cleanNutrition(raw: Record<string, unknown>) {
+const validServings = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 100;
+
+/**
+ * Model output is untrusted: keep only well-formed, in-range numbers. Returns null if the estimate is unusable.
+ * When the per-ingredient breakdown is usable, the per-serving figure is derived from it, so the headline
+ * always equals the breakdown's total ÷ servings (the model's own arithmetic doesn't always agree).
+ */
+function cleanNutrition(raw: Record<string, unknown>, servings: unknown) {
   const { caloriesPerServing, proteinG, carbsG, fatG, ingredientCalories } = raw;
-  if (!inRange(caloriesPerServing, MAX_KCAL_PER_SERVING)) return null;
   if (![proteinG, carbsG, fatG].every((g) => inRange(g, MAX_MACRO_G))) return null;
+  const ingredients = (Array.isArray(ingredientCalories) ? ingredientCalories : [])
+    .filter((i) => typeof i?.name === 'string' && inRange(i?.kcal, MAX_KCAL_PER_SERVING * 100))
+    .slice(0, MAX_INGREDIENTS)
+    .map((i) => ({ name: i.name.slice(0, MAX_FIELD), kcal: Math.round(i.kcal) }));
+  const total = ingredients.reduce((sum, i) => sum + i.kcal, 0);
+  const perServing = total > 0 && validServings(servings) ? total / servings : caloriesPerServing;
+  if (!inRange(perServing, MAX_KCAL_PER_SERVING)) return null;
   return {
-    caloriesPerServing: Math.round(caloriesPerServing),
+    caloriesPerServing: Math.round(perServing),
     nutrition: {
       proteinG: Math.round(proteinG as number),
       carbsG: Math.round(carbsG as number),
       fatG: Math.round(fatG as number),
-      ingredients: (Array.isArray(ingredientCalories) ? ingredientCalories : [])
-        .filter((i) => typeof i?.name === 'string' && inRange(i?.kcal, MAX_KCAL_PER_SERVING * 100))
-        .slice(0, MAX_INGREDIENTS)
-        .map((i) => ({ name: i.name.slice(0, MAX_FIELD), kcal: Math.round(i.kcal) })),
+      ingredients,
     },
   };
 }
@@ -196,7 +205,7 @@ async function callGemini(apiKey: string, systemPrompt: string, parts: unknown[]
 
 async function handleNutrition(apiKey: string, body: Record<string, unknown> | null): Promise<Response> {
   const { ingredients, servings } = body ?? {};
-  if (!Number.isInteger(servings) || (servings as number) < 1 || (servings as number) > 100) {
+  if (!validServings(servings)) {
     return json(400, { error: 'Servings must be between 1 and 100' });
   }
   if (!Array.isArray(ingredients) || ingredients.length === 0 || ingredients.length > MAX_INGREDIENTS) {
@@ -218,7 +227,7 @@ async function handleNutrition(apiKey: string, body: Record<string, unknown> | n
     { type: 'OBJECT', properties: NUTRITION_PROPS, required: NUTRITION_REQUIRED },
   );
   if (result instanceof Response) return result;
-  const cleaned = cleanNutrition(result);
+  const cleaned = cleanNutrition(result, servings);
   return cleaned ? json(200, cleaned) : json(502, { error: 'Could not estimate calories' });
 }
 
@@ -267,5 +276,5 @@ export async function POST(request: Request): Promise<Response> {
 
   // A bad nutrition estimate shouldn't fail the scan; the client just shows "Calculate calories".
   const { caloriesPerServing: _c, proteinG: _p, carbsG: _cb, fatG: _f, ingredientCalories: _i, ...recipe } = result;
-  return json(200, { ...recipe, ...(cleanNutrition(result) ?? {}) });
+  return json(200, { ...recipe, ...(cleanNutrition(result, result.servings) ?? {}) });
 }
