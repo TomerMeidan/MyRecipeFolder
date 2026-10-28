@@ -18,7 +18,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 export default function HomeScreen() {
   const navigation = useNavigation<NavProp>();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [favOnly, setFavOnly] = useState(false);
@@ -99,7 +99,8 @@ export default function HomeScreen() {
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        // Physical side on purpose: react-native-web compiles `end` to a fixed `right`, so it never mirrors.
+        style={[styles.fab, isRTL ? { left: 20 } : { right: 20 }]}
         onPress={() => navigation.navigate('AddEditRecipe', {})}
         activeOpacity={0.85}
         accessibilityRole="button"
@@ -142,7 +143,7 @@ function makeStyles(theme: ThemeColors) {
     emptyButtonText: { fontSize: 17, fontWeight: '800', color: theme.onPrimary },
 
     fab: {
-      position: 'absolute', bottom: 24, end: 20,
+      position: 'absolute', bottom: 24,
       width: 60, height: 60, borderRadius: 30,
       backgroundColor: theme.primary,
       alignItems: 'center', justifyContent: 'center',
