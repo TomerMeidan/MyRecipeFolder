@@ -65,8 +65,8 @@ cp .env.example .env
 |---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project → Settings → API → Project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase project → Settings → API → Publishable key |
-| `EXPO_PUBLIC_GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) |
-| `EXPO_PUBLIC_GOOGLE_API_KEY` | [console.cloud.google.com](https://console.cloud.google.com) — enable Cloud Vision API + Cloud Translation API |
+| `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) — **server-side only** (Vercel env), used by `api/parse-recipe.ts`. Never prefix with `EXPO_PUBLIC_`. |
+| `EXPO_PUBLIC_API_BASE_URL` | Native builds only: deployed origin that serves `/api/parse-recipe` |
 
 ### Supabase Setup
 
@@ -145,7 +145,7 @@ To deploy your own instance:
 
 1. Fork this repo
 2. Import it at [vercel.com/new](https://vercel.com/new)
-3. Add all four environment variables in the Vercel dashboard → Settings → Environment Variables
+3. Add the environment variables above in the Vercel dashboard → Settings → Environment Variables
 4. Deploy
 
 The `vercel.json` config is already included — no additional build configuration needed.

@@ -15,7 +15,6 @@ import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
-const GEMINI_API_KEY = process.env.EXPO_SECRET_GEMINI_API_KEY ?? '';
 const MAX_IMAGES = 10;
 
 type Step = 'pick' | 'preview' | 'analyzing';
@@ -263,14 +262,6 @@ export default function ScanRecipeScreen() {
     }
   };
 
-  const requireKey = () => {
-    if (!GEMINI_API_KEY) {
-      Alert.alert('API Key Missing', 'Set EXPO_SECRET_GEMINI_API_KEY in your .env file.');
-      return false;
-    }
-    return true;
-  };
-
   // ── Image picking (allowsEditing = native crop UI built into the picker) ──────
 
   const pickImage = async (fromCamera: boolean) => {
@@ -343,12 +334,12 @@ export default function ScanRecipeScreen() {
   // ── Analyze ───────────────────────────────────────────────────────────────────
 
   const handleAnalyze = async (src = sourceLang, out = outputLang) => {
-    if (!requireKey() || images.length === 0) return;
+    if (images.length === 0) return;
     setErrorMsg(null);
     setStep('analyzing');
     try {
       const result = await parseRecipeFromImages(
-        images, GEMINI_API_KEY,
+        images,
         {
           sourceLanguage: src ? langName(src) : undefined,
           outputLanguage: out ? langName(out) : undefined,
@@ -403,13 +394,6 @@ export default function ScanRecipeScreen() {
           <Text style={styles.btnIcon}>🖼</Text>
           <Text style={styles.secondaryBtnText}>Choose from Library</Text>
         </TouchableOpacity>
-        {!GEMINI_API_KEY && (
-          <View style={styles.warningBox}>
-            <Text style={styles.warningText}>
-              ⚠ EXPO_SECRET_GEMINI_API_KEY is not set.{'\n'}Add it to your .env file.
-            </Text>
-          </View>
-        )}
       </View>
     );
   }
@@ -667,8 +651,6 @@ function makeStyles(theme: ThemeColors) {
     errorBannerTitle: { fontSize: 14, fontWeight: '700', color: '#C62828', marginBottom: 4 },
     errorBannerMsg:   { fontSize: 13, color: '#B71C1C', lineHeight: 18 },
 
-    warningBox:  { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 14, marginHorizontal: 16, marginTop: 8, borderWidth: 1, borderColor: '#FFD54F' },
-    warningText: { fontSize: 13, color: '#795548', lineHeight: 20 },
 
     langCard:      { backgroundColor: theme.card, margin: 16, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.border },
     langCardLabel: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.4 },
