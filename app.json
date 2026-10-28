@@ -35,7 +35,8 @@
           "cameraPermission": "Allow MyRecipeFolder to use the camera to scan recipe pages."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ]
   }
 }
