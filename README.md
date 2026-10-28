@@ -104,7 +104,7 @@ src/
 └── utils/             # aiParser (Gemini), recipeParser, recipe helpers
 scripts/
 ├── supabase-schema.sql  # Database schema + RLS policies
-└── test-ai-parser.mjs   # Integration test for AI scanning models
+└── check-parse-recipe.mjs  # Self-check for the api/parse-recipe proxy
 ```
 
 ---
