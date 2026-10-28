@@ -157,7 +157,9 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    console.error('[parse-recipe] Gemini error', response.status, err?.error?.status);
+    // Google's reason (e.g. API_KEY_HTTP_REFERRER_BLOCKED, SERVICE_DISABLED) is what tells a bad key apart from a bad request.
+    console.error('[parse-recipe] Gemini error', response.status, err?.error?.status,
+      err?.error?.details?.find((d: { reason?: string }) => d?.reason)?.reason, err?.error?.message);
     return json(502, { error: `Recipe analysis failed (${response.status})` });
   }
 
