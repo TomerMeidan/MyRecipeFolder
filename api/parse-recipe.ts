@@ -35,7 +35,7 @@ const RECIPE_SCHEMA = {
     title:    { type: 'STRING' },
     category: {
       type: 'STRING',
-      enum: ['Pasta', 'Chicken', 'Beef', 'Fish', 'Vegetarian', 'Dessert', 'Soup', 'Salad', 'High Protein', 'Other'],
+      enum: ['Pasta', 'Chicken', 'Beef', 'Fish', 'Vegetarian', 'Dessert', 'Soup', 'Salad', 'High Protein', 'Bread', 'Other'],
     },
     ingredients: {
       type: 'ARRAY',
