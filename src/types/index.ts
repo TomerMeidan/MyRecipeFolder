@@ -58,4 +58,5 @@ export type BottomTabParamList = {
   HomeTab: undefined;
   SearchTab: undefined;
   ScanTab: undefined;
+  SettingsTab: undefined;
 };

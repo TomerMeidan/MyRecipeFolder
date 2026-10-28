@@ -2,7 +2,7 @@
 
 A cross-platform recipe management app built with **React Native + Expo**. Save, search, and scan recipes — including handwritten ones in Hebrew or any language — powered by Gemini AI, with cloud sync via Supabase.
 
-**Live:** [myrecipefolder.vercel.app](https://myrecipefolder.vercel.app)
+**Live:** [my-recipe-folder.vercel.app](https://my-recipe-folder.vercel.app)
 
 ---
 

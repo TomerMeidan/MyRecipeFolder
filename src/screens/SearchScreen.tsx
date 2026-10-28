@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,12 +12,15 @@ import { filterRecipes } from '../db/recipeRepository';
 import { RECIPE_CATEGORIES } from '../utils/constants';
 import RecipeCard from '../components/RecipeCard';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { categoryKey } from '../i18n/strings';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavProp>();
   const { theme } = useTheme();
+  const { t, tp } = useLanguage();
 
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | null>(null);
@@ -67,20 +71,21 @@ export default function SearchScreen() {
       {/* Search bar */}
       <View style={styles.searchBarWrapper}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={20} color={theme.textSecondary} />
           <TextInput
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="Title, ingredient or category…"
+            placeholder={t('search_placeholder')}
             placeholderTextColor={theme.textSecondary}
             returnKeyType="search"
             clearButtonMode="never"
             autoCorrect={false}
+            accessibilityLabel={t('a11y_search')}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={clearQuery} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.clearBtn}>✕</Text>
+            <TouchableOpacity onPress={clearQuery} style={styles.clearBtn} accessibilityRole="button" accessibilityLabel={t('a11y_clear_search')}>
+              <Ionicons name="close-circle" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -94,10 +99,13 @@ export default function SearchScreen() {
         contentContainerStyle={styles.chipContent}
       >
         <TouchableOpacity
-          style={[styles.chip, styles.chipFav, favOnly && styles.chipActive]}
+          style={[styles.chip, favOnly && styles.chipActive]}
           onPress={() => setFavOnly((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: favOnly }}
         >
-          <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>♥  Favorites</Text>
+          <Ionicons name={favOnly ? 'heart' : 'heart-outline'} size={16} color={favOnly ? theme.background : theme.text} />
+          <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>{t('favorites')}</Text>
         </TouchableOpacity>
         {RECIPE_CATEGORIES.map((cat) => {
           const active = selectedCategory === cat;
@@ -106,8 +114,10 @@ export default function SearchScreen() {
               key={cat}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => handleCategoryPress(cat)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(categoryKey(cat))}</Text>
             </TouchableOpacity>
           );
         })}
@@ -131,21 +141,19 @@ export default function SearchScreen() {
           )}
           contentContainerStyle={displayed.length === 0 ? styles.emptyContainer : styles.list}
           ListHeaderComponent={
-            searched && !loading ? (
+            searched && !loading && displayed.length > 0 ? (
               <Text style={styles.resultCount}>
-                {displayed.length === 0
-                  ? 'No recipes found'
-                  : `${displayed.length} recipe${displayed.length !== 1 ? 's' : ''} found`}
+                {tp('recipes_count', displayed.length)}
               </Text>
             ) : null
           }
           ListEmptyComponent={
             searched ? (
               <View style={styles.emptyInner}>
-                <Text style={styles.emptyIcon}>🔍</Text>
-                <Text style={styles.emptyTitle}>No results</Text>
+                <Ionicons name="search-outline" size={44} color={theme.textSecondary} />
+                <Text style={styles.emptyTitle}>{t('search_empty_title')}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Try a different name, ingredient{'\n'}or remove the category filter
+                  {t('search_empty_body')}
                 </Text>
               </View>
             ) : null
@@ -162,35 +170,33 @@ function makeStyles(theme: ThemeColors) {
     container: { flex: 1, backgroundColor: theme.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-    searchBarWrapper: { backgroundColor: theme.card, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
+    searchBarWrapper: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
     searchBar: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: theme.background, borderRadius: 12,
-      paddingHorizontal: 12, paddingVertical: 10,
-      borderWidth: 1, borderColor: theme.border,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      minHeight: 52, borderRadius: 12, paddingStart: 14,
+      backgroundColor: theme.card, borderWidth: 1.5, borderColor: theme.borderStrong,
     },
-    searchIcon: { fontSize: 16, marginRight: 8 },
-    searchInput: { flex: 1, fontSize: 15, color: theme.text },
-    clearBtn: { fontSize: 14, color: theme.textSecondary, paddingLeft: 8 },
+    searchInput: { flex: 1, alignSelf: 'stretch', fontSize: 17, color: theme.text },
+    clearBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
 
-    chipScroll: { backgroundColor: theme.card, height: 60, justifyContent: 'center' },
-    chipContent: { paddingHorizontal: 16, gap: 8, flexDirection: 'row', alignItems: 'center' },
+    chipScroll: { borderBottomWidth: 1, borderBottomColor: theme.border },
+    chipContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexDirection: 'row', alignItems: 'center' },
     chip: {
-      borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
-      backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      minHeight: 44, borderRadius: 22, paddingHorizontal: 16,
+      borderWidth: 1.5, borderColor: theme.borderStrong,
     },
-    chipFav: { borderColor: theme.primary },
-    chipActive: { backgroundColor: theme.primaryLight, borderColor: theme.primary },
-    chipText: { fontSize: 13, color: theme.textSecondary, fontWeight: '500' },
-    chipTextActive: { color: theme.primary },
+    // Selected chips are an inverted surface: quiet in both modes, unlike a yellow fill in dark.
+    chipActive: { backgroundColor: theme.text, borderColor: theme.text },
+    chipText: { fontSize: 15, color: theme.text, fontWeight: '700' },
+    chipTextActive: { color: theme.background },
 
-    list: { paddingTop: 12, paddingBottom: 40 },
-    emptyContainer: { flex: 1, paddingTop: 12 },
-    resultCount: { fontSize: 13, color: theme.textSecondary, marginHorizontal: 16, marginBottom: 8 },
+    list: { paddingBottom: 40 },
+    emptyContainer: { flexGrow: 1 },
+    resultCount: { fontSize: 15, fontWeight: '600', color: theme.textSecondary, marginHorizontal: 16, marginTop: 12, marginBottom: 4 },
 
-    emptyInner: { alignItems: 'center', marginTop: 70 },
-    emptyIcon: { fontSize: 48, marginBottom: 16 },
-    emptyTitle: { fontSize: 18, fontWeight: '600', color: theme.text, marginBottom: 6 },
-    emptySubtitle: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 20 },
+    emptyInner: { alignItems: 'center', paddingHorizontal: 32, paddingTop: 64 },
+    emptyTitle: { fontSize: 22, fontWeight: '800', color: theme.text, marginTop: 14, marginBottom: 6 },
+    emptySubtitle: { fontSize: 17, lineHeight: 25, color: theme.textSecondary, textAlign: 'center' },
   });
 }

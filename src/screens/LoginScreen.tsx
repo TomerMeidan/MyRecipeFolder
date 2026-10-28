@@ -4,12 +4,15 @@ import {
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
   Platform, ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
-import { useTheme } from '../theme/ThemeContext';
+import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +22,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      setError('Please enter your email and password.');
+      setError(t('login_missing'));
       return;
     }
     setError('');
@@ -29,97 +32,118 @@ export default function LoginScreen() {
     if (err) setError(err);
   };
 
+  const styles = makeStyles(theme);
+
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: theme.background }]}
+      style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-        <Text style={styles.logo}>🍳</Text>
-        <Text style={[styles.title, { color: theme.text }]}>My Recipe Folder</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Sign in to continue</Text>
-
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-
-          <Text style={[styles.label, { color: theme.textSecondary }]}>Email</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-            value={email}
-            onChangeText={(v) => { setEmail(v); setError(''); }}
-            placeholder="Enter your email"
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
-
-          <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
-          <View style={styles.passRow}>
-            <TextInput
-              style={[styles.input, styles.passInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-              value={password}
-              onChangeText={(v) => { setPassword(v); setError(''); }}
-              placeholder="Enter your password"
-              placeholderTextColor={theme.textSecondary}
-              secureTextEntry={!showPass}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="done"
-              onSubmitEditing={handleLogin}
-            />
-            <TouchableOpacity
-              style={[styles.eyeBtn, { borderColor: theme.border, backgroundColor: theme.background }]}
-              onPress={() => setShowPass((v) => !v)}
-            >
-              <Text style={{ fontSize: 18 }}>{showPass ? '🙈' : '👁️'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <TouchableOpacity
-            style={[styles.loginBtn, { backgroundColor: theme.primary }, loading && styles.loginBtnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.loginBtnText}>Sign In</Text>
-            }
-          </TouchableOpacity>
-
+        {/* The one highlighted element on this screen */}
+        <View style={styles.logo}>
+          <Ionicons name="restaurant" size={36} color={theme.text} />
         </View>
+        <Text style={styles.title}>My Recipe Folder</Text>
+        <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
+
+        <Text style={styles.label}>{t('email')}</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={(v) => { setEmail(v); setError(''); }}
+          placeholder={t('email_placeholder')}
+          placeholderTextColor={theme.textSecondary}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoCorrect={false}
+          returnKeyType="next"
+          accessibilityLabel={t('email')}
+        />
+
+        <Text style={styles.label}>{t('password')}</Text>
+        <View style={styles.passRow}>
+          <TextInput
+            style={[styles.input, styles.passInput]}
+            value={password}
+            onChangeText={(v) => { setPassword(v); setError(''); }}
+            placeholder={t('password_placeholder')}
+            placeholderTextColor={theme.textSecondary}
+            secureTextEntry={!showPass}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
+            accessibilityLabel={t('password')}
+          />
+          <TouchableOpacity
+            style={styles.eyeBtn}
+            onPress={() => setShowPass((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={t(showPass ? 'hide_password' : 'show_password')}
+          >
+            <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        {error ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={20} color={theme.errorText} />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        ) : null}
+
+        <TouchableOpacity
+          style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+          accessibilityRole="button"
+        >
+          {loading
+            ? <ActivityIndicator color={theme.onPrimary} />
+            : <Text style={styles.loginBtnText}>{t('sign_in')}</Text>
+          }
+        </TouchableOpacity>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  root:   { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+function makeStyles(theme: ThemeColors) {
+  return StyleSheet.create({
+    root:   { flex: 1, backgroundColor: theme.background },
+    scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, width: '100%', maxWidth: 440, alignSelf: 'center' },
 
-  logo:     { fontSize: 64, textAlign: 'center', marginBottom: 12 },
-  title:    { fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 15, textAlign: 'center', marginBottom: 32 },
+    logo: {
+      width: 72, height: 72, borderRadius: 18, alignSelf: 'center',
+      backgroundColor: theme.highlight, alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    },
+    title:    { fontSize: 30, fontWeight: '800', textAlign: 'center', color: theme.text, marginBottom: 4 },
+    subtitle: { fontSize: 17, textAlign: 'center', color: theme.textSecondary, marginBottom: 28 },
 
-  card: {
-    borderRadius: 16, padding: 24, borderWidth: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
-  },
+    label: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 6, marginTop: 16 },
+    input: {
+      minHeight: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, fontSize: 17,
+      backgroundColor: theme.card, borderColor: theme.borderStrong, color: theme.text,
+    },
 
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 16 },
-  input: { borderWidth: 1, borderRadius: 10, padding: 14, fontSize: 15, flex: 1 },
+    passRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    passInput: { flex: 1 },
+    eyeBtn:    {
+      width: 52, height: 52, borderRadius: 12, borderWidth: 1.5,
+      borderColor: theme.borderStrong, alignItems: 'center', justifyContent: 'center',
+    },
 
-  passRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  passInput: { flex: 1 },
-  eyeBtn:    { padding: 12, borderRadius: 10, borderWidth: 1 },
+    errorBox: {
+      flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14,
+      padding: 12, borderRadius: 10, backgroundColor: theme.errorBox,
+    },
+    error: { flex: 1, color: theme.errorText, fontSize: 15, fontWeight: '600' },
 
-  error: { color: '#D32F2F', fontSize: 13, marginTop: 10, textAlign: 'center' },
-
-  loginBtn:         { borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 20 },
-  loginBtnDisabled: { opacity: 0.6 },
-  loginBtnText:     { fontSize: 16, fontWeight: '700', color: '#fff' },
-});
+    loginBtn:         { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 24, backgroundColor: theme.primary },
+    loginBtnDisabled: { opacity: 0.6 },
+    loginBtnText:     { fontSize: 17, fontWeight: '800', color: theme.onPrimary },
+  });
+}

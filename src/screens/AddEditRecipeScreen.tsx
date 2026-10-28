@@ -12,7 +12,10 @@ import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } fr
 import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
 import { createRecipe, createIngredient, createStep } from '../utils/recipe';
 import { RECIPE_CATEGORIES } from '../utils/constants';
+import { isRtlText } from '../utils/rtl';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { categoryKey } from '../i18n/strings';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditRecipe'>;
 
@@ -20,6 +23,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const { recipeId, prefill } = route.params ?? {};
   const isEditing = !!recipeId;
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(isEditing);
   const [title, setTitle] = useState(prefill?.title ?? '');
@@ -46,8 +50,8 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   }, []);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: isEditing ? 'Edit Recipe' : prefill ? 'Edit Scanned Recipe' : 'Add Recipe' });
-  }, [isEditing, prefill]);
+    navigation.setOptions({ title: t(isEditing ? 'title_edit_recipe' : prefill ? 'title_edit_scanned' : 'title_add_recipe') });
+  }, [isEditing, prefill, t]);
 
   useEffect(() => {
     if (!isEditing || !recipeId) return;
@@ -124,7 +128,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Missing title', 'Please enter a recipe title.');
+      Alert.alert(t('missing_title'), t('missing_title_msg'));
       return;
     }
 
@@ -150,11 +154,11 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
       if (isEditing) {
         await updateRecipe(recipe);
-        showToast('Recipe updated!', 'success');
+        showToast(t('toast_updated'), 'success');
         setTimeout(() => navigation.goBack(), 1200);
       } else {
         await insertRecipe(recipe);
-        showToast('Recipe saved!', 'success');
+        showToast(t('toast_saved'), 'success');
         if (prefill) {
           setTimeout(() => navigation.dispatch(StackActions.replace('ScanRecipe')), 1500);
         } else {
@@ -162,7 +166,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         }
       }
     } catch (e) {
-      showToast('Could not save the recipe. Please try again.', 'error');
+      showToast(t('toast_save_failed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -174,6 +178,10 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     return <View style={styles.center}><ActivityIndicator size="large" color={theme.primary} /></View>;
   }
 
+  // The form follows the UI language; each free-text field aligns to its own content,
+  // so a Hebrew recipe reads right-aligned even in an English UI (and vice versa).
+  const align = (v: string) => ({ textAlign: isRtlText(v) ? 'right' : 'left' } as const);
+
   return (
     <View style={styles.container}>
     <KeyboardAvoidingView
@@ -183,26 +191,29 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Title */}
-        <Text style={styles.label}>Title *</Text>
+        <Text style={styles.label}>{t('label_title')}</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, styles.titleInput, align(title)]}
           value={title}
           onChangeText={setTitle}
-          placeholder="e.g. Spaghetti Bolognese"
+          placeholder={t('title_placeholder')}
           placeholderTextColor={theme.textSecondary}
+          accessibilityLabel={t('a11y_title_required')}
         />
 
         {/* Category */}
-        <Text style={styles.label}>Category</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        <Text style={styles.label}>{t('label_category')}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {RECIPE_CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
               onPress={() => setCategory(cat)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: category === cat }}
             >
               <Text style={[styles.categoryChipText, category === cat && styles.categoryChipTextActive]}>
-                {cat}
+                {t(categoryKey(cat))}
               </Text>
             </TouchableOpacity>
           ))}
@@ -211,7 +222,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         {/* Numeric row */}
         <View style={styles.row}>
           <View style={styles.rowItem}>
-            <Text style={styles.label}>Servings</Text>
+            <Text style={styles.label}>{t('label_servings')}</Text>
             <TextInput
               style={styles.inputSmall}
               value={servings}
@@ -222,7 +233,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
             />
           </View>
           <View style={styles.rowItem}>
-            <Text style={styles.label}>Prep (min)</Text>
+            <Text style={styles.label}>{t('label_prep_min')}</Text>
             <TextInput
               style={styles.inputSmall}
               value={prepTime}
@@ -233,7 +244,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
             />
           </View>
           <View style={styles.rowItem}>
-            <Text style={styles.label}>Cook (min)</Text>
+            <Text style={styles.label}>{t('label_cook_min')}</Text>
             <TextInput
               style={styles.inputSmall}
               value={cookTime}
@@ -246,133 +257,145 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         </View>
 
         {/* Favorite toggle */}
-        <TouchableOpacity style={styles.favoriteRow} onPress={() => setIsFavorite((v) => !v)}>
-          <Text style={[styles.heart, isFavorite && styles.heartActive]}>
-            {isFavorite ? '♥' : '♡'}
-          </Text>
+        <TouchableOpacity
+          style={styles.favoriteRow}
+          onPress={() => setIsFavorite((v) => !v)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: isFavorite }}
+        >
+          <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={26} color={isFavorite ? theme.primary : theme.textSecondary} />
           <Text style={styles.favoriteLabel}>
-            {isFavorite ? 'Saved as favorite' : 'Mark as favorite'}
+            {t(isFavorite ? 'fav_saved' : 'fav_mark')}
           </Text>
         </TouchableOpacity>
 
         {/* Ingredients */}
-        <Text style={styles.sectionTitle}>Ingredients</Text>
-        <View style={styles.card}>
-          <View style={styles.ingredientHeader}>
-            <Text style={[styles.colLabel, { flex: 2 }]}>Name</Text>
-            <Text style={[styles.colLabel, { flex: 1 }]}>Qty</Text>
-            <Text style={[styles.colLabel, { flex: 1 }]}>Unit</Text>
-            <View style={{ width: 30 }} />
-          </View>
-          {ingredients.map((ing, i) => (
-            <View key={ing.id} style={styles.ingredientRow}>
-              <TextInput
-                style={[styles.inlineInput, { flex: 2 }]}
-                value={ing.name}
-                onChangeText={(v) => updateIngredient(i, 'name', v)}
-                placeholder="Ingredient"
-                placeholderTextColor={theme.textSecondary}
-              />
-              <TextInput
-                style={[styles.inlineInput, { flex: 1 }]}
-                value={ing.quantity}
-                onChangeText={(v) => updateIngredient(i, 'quantity', v)}
-                placeholder="1"
-                placeholderTextColor={theme.textSecondary}
-                keyboardType="decimal-pad"
-              />
-              <TextInput
-                style={[styles.inlineInput, { flex: 1 }]}
-                value={ing.unit}
-                onChangeText={(v) => updateIngredient(i, 'unit', v)}
-                placeholder="cup"
-                placeholderTextColor={theme.textSecondary}
-              />
-              <View style={styles.moveCol}>
-                <TouchableOpacity
-                  onPress={() => moveIngredient(i, -1)}
-                  disabled={i === 0}
-                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
-                >
-                  <Ionicons name="chevron-up" size={16} color={i === 0 ? theme.border : theme.textSecondary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => moveIngredient(i, 1)}
-                  disabled={i === ingredients.length - 1}
-                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
-                >
-                  <Ionicons name="chevron-down" size={16} color={i === ingredients.length - 1 ? theme.border : theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
+        <Text style={styles.sectionTitle}>{t('ingredients')}</Text>
+        <View style={styles.ingredientHeader}>
+          <Text style={[styles.colLabel, { flex: 2 }]}>{t('col_ingredient')}</Text>
+          <Text style={[styles.colLabel, { flex: 1 }]}>{t('col_qty')}</Text>
+          <Text style={[styles.colLabel, { flex: 1 }]}>{t('col_unit')}</Text>
+          <View style={{ width: 86 }} />
+        </View>
+        {ingredients.map((ing, i) => (
+          <View key={ing.id} style={styles.ingredientRow}>
+            <TextInput
+              style={[styles.inlineInput, { flex: 2 }, align(ing.name)]}
+              value={ing.name}
+              onChangeText={(v) => updateIngredient(i, 'name', v)}
+              placeholder={t('ph_ingredient')}
+              placeholderTextColor={theme.textSecondary}
+            />
+            <TextInput
+              style={[styles.inlineInput, { flex: 1 }]}
+              value={ing.quantity}
+              onChangeText={(v) => updateIngredient(i, 'quantity', v)}
+              placeholder={t('ph_qty')}
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="decimal-pad"
+            />
+            <TextInput
+              style={[styles.inlineInput, { flex: 1 }, align(ing.unit)]}
+              value={ing.unit}
+              onChangeText={(v) => updateIngredient(i, 'unit', v)}
+              placeholder={t('ph_unit')}
+              placeholderTextColor={theme.textSecondary}
+            />
+            <View style={styles.moveCol}>
               <TouchableOpacity
-                onPress={() => removeIngredient(i)}
-                style={styles.removeBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.moveBtn}
+                onPress={() => moveIngredient(i, -1)}
+                disabled={i === 0}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11y_move_ing_up')}
               >
-                <Text style={styles.removeBtnText}>✕</Text>
+                <Ionicons name="chevron-up" size={20} color={i === 0 ? theme.border : theme.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.moveBtn}
+                onPress={() => moveIngredient(i, 1)}
+                disabled={i === ingredients.length - 1}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11y_move_ing_down')}
+              >
+                <Ionicons name="chevron-down" size={20} color={i === ingredients.length - 1 ? theme.border : theme.text} />
               </TouchableOpacity>
             </View>
-          ))}
-          <TouchableOpacity style={styles.addRowBtn} onPress={addIngredient}>
-            <Text style={styles.addRowBtnText}>+ Add Ingredient</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() => removeIngredient(i)}
+              style={styles.removeBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11y_remove_ing')}
+            >
+              <Ionicons name="close" size={22} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity style={styles.addRowBtn} onPress={addIngredient} accessibilityRole="button">
+          <Ionicons name="add-circle-outline" size={22} color={theme.text} />
+          <Text style={styles.addRowBtnText}>{t('add_ingredient')}</Text>
+        </TouchableOpacity>
 
         {/* Steps */}
-        <Text style={styles.sectionTitle}>Steps</Text>
-        <View style={styles.card}>
-          {steps.map((step, i) => (
-            <View key={i} style={styles.stepRow}>
-              <View style={styles.stepCircle}>
-                <Text style={styles.stepCircleText}>{step.order}</Text>
-              </View>
-              <TextInput
-                style={styles.stepInput}
-                value={step.instruction}
-                onChangeText={(v) => updateStep(i, v)}
-                placeholder={`Step ${step.order}...`}
-                placeholderTextColor={theme.textSecondary}
-                multiline
-              />
-              <View style={[styles.moveCol, styles.moveColStep]}>
-                <TouchableOpacity
-                  onPress={() => moveStep(i, -1)}
-                  disabled={i === 0}
-                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
-                >
-                  <Ionicons name="chevron-up" size={16} color={i === 0 ? theme.border : theme.textSecondary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => moveStep(i, 1)}
-                  disabled={i === steps.length - 1}
-                  hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
-                >
-                  <Ionicons name="chevron-down" size={16} color={i === steps.length - 1 ? theme.border : theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
+        <Text style={styles.sectionTitle}>{t('steps')}</Text>
+        {steps.map((step, i) => (
+          <View key={i} style={styles.stepRow}>
+            <View style={styles.stepCircle}>
+              <Text style={styles.stepCircleText}>{step.order}</Text>
+            </View>
+            <TextInput
+              style={[styles.stepInput, align(step.instruction)]}
+              value={step.instruction}
+              onChangeText={(v) => updateStep(i, v)}
+              placeholder={t('step_placeholder', { n: step.order })}
+              placeholderTextColor={theme.textSecondary}
+              multiline
+            />
+            <View style={styles.moveCol}>
               <TouchableOpacity
-                onPress={() => removeStep(i)}
-                style={styles.removeBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.moveBtn}
+                onPress={() => moveStep(i, -1)}
+                disabled={i === 0}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11y_move_step_up')}
               >
-                <Text style={styles.removeBtnText}>✕</Text>
+                <Ionicons name="chevron-up" size={20} color={i === 0 ? theme.border : theme.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.moveBtn}
+                onPress={() => moveStep(i, 1)}
+                disabled={i === steps.length - 1}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11y_move_step_down')}
+              >
+                <Ionicons name="chevron-down" size={20} color={i === steps.length - 1 ? theme.border : theme.text} />
               </TouchableOpacity>
             </View>
-          ))}
-          <TouchableOpacity style={styles.addRowBtn} onPress={addStep}>
-            <Text style={styles.addRowBtnText}>+ Add Step</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() => removeStep(i)}
+              style={styles.removeBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11y_remove_step')}
+            >
+              <Ionicons name="close" size={22} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity style={styles.addRowBtn} onPress={addStep} accessibilityRole="button">
+          <Ionicons name="add-circle-outline" size={22} color={theme.text} />
+          <Text style={styles.addRowBtnText}>{t('add_step')}</Text>
+        </TouchableOpacity>
 
         {/* Save */}
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={saving}
+          accessibilityRole="button"
         >
           {saving
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.saveButtonText}>{isEditing ? 'Update Recipe' : 'Save Recipe'}</Text>
+            ? <ActivityIndicator color={theme.onPrimary} />
+            : <Text style={styles.saveButtonText}>{t(isEditing ? 'update_recipe' : 'save_recipe')}</Text>
           }
         </TouchableOpacity>
 
@@ -381,8 +404,15 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
     {toast && (
       <TouchableOpacity style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]} onPress={() => setToast(null)} activeOpacity={0.9}>
-        <Text style={styles.toastText}>{toast.message}</Text>
-        <Text style={styles.toastDismiss}>Tap to dismiss</Text>
+        <View style={styles.toastRow}>
+          <Ionicons
+            name={toast.type === 'success' ? 'checkmark-circle' : 'alert-circle'}
+            size={22}
+            color={toast.type === 'success' ? theme.background : theme.errorText}
+          />
+          <Text style={[styles.toastText, toast.type === 'error' && styles.toastTextError]}>{toast.message}</Text>
+        </View>
+        <Text style={[styles.toastDismiss, toast.type === 'error' && styles.toastTextError]}>{t('tap_to_dismiss')}</Text>
       </TouchableOpacity>
     )}
     </View>
@@ -393,90 +423,91 @@ function makeStyles(theme: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
-    scroll: { padding: 16, paddingBottom: 40 },
+    scroll: { padding: 16, paddingBottom: 48 },
 
-    label: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
+    label: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 6, marginTop: 16 },
     input: {
-      backgroundColor: theme.card, borderRadius: 10, padding: 14,
-      fontSize: 16, color: theme.text,
-      borderWidth: 1, borderColor: theme.border,
+      minHeight: 52, backgroundColor: theme.card, borderRadius: 12, paddingHorizontal: 14,
+      fontSize: 17, color: theme.text,
+      borderWidth: 1.5, borderColor: theme.borderStrong,
     },
+    titleInput: { fontSize: 20, fontWeight: '700' },
     inputSmall: {
-      backgroundColor: theme.card, borderRadius: 10, padding: 12,
-      fontSize: 15, color: theme.text, textAlign: 'center',
-      borderWidth: 1, borderColor: theme.border,
+      minHeight: 52, backgroundColor: theme.card, borderRadius: 12, paddingHorizontal: 8,
+      fontSize: 18, fontWeight: '700', color: theme.text, textAlign: 'center', fontVariant: ['tabular-nums'],
+      borderWidth: 1.5, borderColor: theme.borderStrong,
     },
 
-    categoryScroll: { marginBottom: 4 },
+    categoryScroll: { gap: 8, paddingVertical: 2 },
     categoryChip: {
-      borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
-      marginRight: 8, backgroundColor: theme.card,
-      borderWidth: 1, borderColor: theme.border,
+      minHeight: 44, justifyContent: 'center',
+      borderRadius: 22, paddingHorizontal: 16,
+      borderWidth: 1.5, borderColor: theme.borderStrong,
     },
-    categoryChipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-    categoryChipText: { fontSize: 14, color: theme.textSecondary, fontWeight: '500' },
-    categoryChipTextActive: { color: '#fff' },
+    // Selected chips are an inverted surface: quiet in both modes, unlike a yellow fill in dark.
+    categoryChipActive: { backgroundColor: theme.text, borderColor: theme.text },
+    categoryChipText: { fontSize: 15, color: theme.text, fontWeight: '700' },
+    categoryChipTextActive: { color: theme.background },
 
     row: { flexDirection: 'row', gap: 10 },
     rowItem: { flex: 1 },
 
-    favoriteRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 4 },
-    heart: { fontSize: 24, color: theme.border, marginRight: 10 },
-    heartActive: { color: theme.primary },
-    favoriteLabel: { fontSize: 15, color: theme.textSecondary },
+    favoriteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, marginTop: 12, alignSelf: 'flex-start' },
+    favoriteLabel: { fontSize: 17, fontWeight: '600', color: theme.text },
 
-    sectionTitle: { fontSize: 17, fontWeight: '700', color: theme.text, marginTop: 20, marginBottom: 10 },
-    card: {
-      backgroundColor: theme.card, borderRadius: 12, padding: 14,
-      borderWidth: 1, borderColor: theme.border,
+    sectionTitle: {
+      fontSize: 22, fontWeight: '800', color: theme.text, marginTop: 24, marginBottom: 8,
+      paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.border,
     },
 
-    ingredientHeader: { flexDirection: 'row', marginBottom: 6 },
-    colLabel: { fontSize: 11, color: theme.textSecondary, fontWeight: '600', textTransform: 'uppercase', minWidth: 0 },
+    ingredientHeader: { flexDirection: 'row', gap: 6, marginBottom: 6 },
+    colLabel: { fontSize: 13, color: theme.textSecondary, fontWeight: '700', minWidth: 0 },
 
-    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 4 },
+    ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
     inlineInput: {
-      borderWidth: 1, borderColor: theme.border, borderRadius: 8,
-      padding: 8, fontSize: 14, color: theme.text, backgroundColor: theme.background,
+      minHeight: 48, borderWidth: 1.5, borderColor: theme.borderStrong, borderRadius: 10,
+      paddingHorizontal: 10, fontSize: 16, color: theme.text, backgroundColor: theme.card,
       // minWidth:0 allows flex items to shrink below content width on web
       minWidth: 0,
     },
-    removeBtn: { width: 26, alignItems: 'center' },
-    removeBtnText: { fontSize: 14, color: theme.textSecondary },
-    addRowBtn: { marginTop: 6, paddingVertical: 8 },
-    addRowBtnText: { fontSize: 14, color: theme.primary, fontWeight: '600' },
-    moveCol: { width: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    moveColStep: { marginTop: 6 },
+    moveCol: { width: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    moveBtn: { width: 36, height: 26, alignItems: 'center', justifyContent: 'center' },
+    removeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, alignSelf: 'flex-start' },
+    addRowBtnText: { fontSize: 16, color: theme.text, fontWeight: '700' },
 
-    stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10 },
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 8 },
     stepCircle: {
-      width: 28, height: 28, borderRadius: 14, backgroundColor: theme.primary,
-      alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 6,
+      width: 30, height: 30, borderRadius: 8, backgroundColor: theme.highlight,
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 10,
     },
-    stepCircleText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    stepCircleText: { fontSize: 16, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
     stepInput: {
-      flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 8,
-      padding: 10, fontSize: 14, color: theme.text, backgroundColor: theme.background,
-      minHeight: 44,
+      flex: 1, borderWidth: 1.5, borderColor: theme.borderStrong, borderRadius: 10,
+      padding: 12, fontSize: 17, lineHeight: 24, color: theme.text, backgroundColor: theme.card,
+      minHeight: 96, textAlignVertical: 'top',
     },
 
     saveButton: {
-      backgroundColor: theme.primary, borderRadius: 14, paddingVertical: 16,
-      alignItems: 'center', marginTop: 24,
+      backgroundColor: theme.primary, borderRadius: 12, minHeight: 56,
+      alignItems: 'center', justifyContent: 'center', marginTop: 28,
     },
     saveButtonDisabled: { opacity: 0.6 },
-    saveButtonText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+    saveButtonText: { fontSize: 18, fontWeight: '800', color: theme.onPrimary },
 
     toast: {
       position: 'absolute', bottom: 40, left: 24, right: 24,
       borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18,
       alignItems: 'center',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.2, shadowRadius: 8, elevation: 8,
     },
-    toastSuccess: { backgroundColor: '#2E7D32' },
-    toastError:   { backgroundColor: '#C62828' },
-    toastText:    { fontSize: 15, fontWeight: '700', color: '#fff', textAlign: 'center' },
-    toastDismiss: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+    // Success is an inverted surface; error uses the error tokens. Both keep >= 4.5:1.
+    toastSuccess: { backgroundColor: theme.text },
+    toastError:   { backgroundColor: theme.errorBox, borderWidth: 1.5, borderColor: theme.errorText },
+    toastRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    toastText:    { fontSize: 16, fontWeight: '700', color: theme.background, textAlign: 'center', flexShrink: 1 },
+    toastTextError: { color: theme.errorText },
+    toastDismiss: { fontSize: 13, fontWeight: '600', color: theme.background, marginTop: 4 },
   });
 }
