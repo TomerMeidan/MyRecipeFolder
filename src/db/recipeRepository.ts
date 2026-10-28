@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
+import { Recipe, Ingredient, RecipeStep, RecipeCategory, Nutrition } from '../types';
 
 // ── Row shapes from Supabase ──────────────────────────────────────────────────
 
@@ -7,6 +7,7 @@ interface RecipeRow {
   id: string; user_id: string; title: string; category: string;
   language: string; servings: number; prep_time: number; cook_time: number;
   is_favorite: boolean; photo_uri: string | null;
+  calories_per_serving?: number | null; nutrition?: Nutrition | null; calories_manual?: boolean;
   created_at: number; updated_at: number;
   ingredients?: IngredientRow[];
   steps?: StepRow[];
@@ -29,11 +30,33 @@ function toRecipe(row: RecipeRow): Recipe {
     language: row.language, servings: row.servings,
     prepTime: row.prep_time, cookTime: row.cook_time,
     isFavorite: row.is_favorite, photoUri: row.photo_uri ?? undefined,
+    caloriesPerServing: row.calories_per_serving ?? undefined,
+    nutrition: row.nutrition ?? undefined, caloriesManual: row.calories_manual ?? false,
     ingredients, steps, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
 const RECIPE_SELECT = '*, ingredients(*), steps(*)';
+
+const nutritionColumns = (r: Pick<Recipe, 'caloriesPerServing' | 'nutrition' | 'caloriesManual'>) => ({
+  calories_per_serving: r.caloriesPerServing ?? null,
+  nutrition: r.nutrition ?? null,
+  calories_manual: r.caloriesManual,
+});
+
+// PostgREST "column not found": the calories migration hasn't been run in Supabase yet.
+// shortcut: saves without calories until then; drop this fallback once every database has the columns.
+const isMissingColumn = (e: { code?: string } | null) => e?.code === 'PGRST204';
+
+async function writeRecipeRow(
+  write: (cols: Record<string, unknown>) => PromiseLike<{ error: { code?: string } | null }>,
+  base: Record<string, unknown>,
+  recipe: Recipe,
+) {
+  let { error } = await write({ ...base, ...nutritionColumns(recipe) });
+  if (isMissingColumn(error)) ({ error } = await write(base));
+  if (error) throw error;
+}
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -60,15 +83,14 @@ export async function insertRecipe(recipe: Recipe): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error: recipeError } = await supabase.from('recipes').insert({
+  await writeRecipeRow((cols) => supabase.from('recipes').insert(cols), {
     id: recipe.id, user_id: user.id, title: recipe.title,
     category: recipe.category, language: recipe.language,
     servings: recipe.servings, prep_time: recipe.prepTime,
     cook_time: recipe.cookTime, is_favorite: recipe.isFavorite,
     photo_uri: recipe.photoUri ?? null,
     created_at: recipe.createdAt, updated_at: recipe.updatedAt,
-  });
-  if (recipeError) throw recipeError;
+  }, recipe);
 
   if (recipe.ingredients.length > 0) {
     const { error } = await supabase.from('ingredients').insert(
@@ -88,13 +110,12 @@ export async function insertRecipe(recipe: Recipe): Promise<void> {
 export async function updateRecipe(recipe: Recipe): Promise<void> {
   const updatedAt = Date.now();
 
-  const { error: recipeError } = await supabase.from('recipes').update({
+  await writeRecipeRow((cols) => supabase.from('recipes').update(cols).eq('id', recipe.id), {
     title: recipe.title, category: recipe.category, language: recipe.language,
     servings: recipe.servings, prep_time: recipe.prepTime,
     cook_time: recipe.cookTime, is_favorite: recipe.isFavorite,
     photo_uri: recipe.photoUri ?? null, updated_at: updatedAt,
-  }).eq('id', recipe.id);
-  if (recipeError) throw recipeError;
+  }, recipe);
 
   // Replace ingredients and steps
   await supabase.from('ingredients').delete().eq('recipe_id', recipe.id);
@@ -114,6 +135,14 @@ export async function updateRecipe(recipe: Recipe): Promise<void> {
 
 export async function deleteRecipe(id: string): Promise<void> {
   const { error } = await supabase.from('recipes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Saves a fresh estimate without touching ingredients or steps. */
+export async function saveNutrition(id: string, caloriesPerServing: number, nutrition: Nutrition): Promise<void> {
+  const { error } = await supabase.from('recipes').update({
+    calories_per_serving: caloriesPerServing, nutrition, calories_manual: false,
+  }).eq('id', id);
   if (error) throw error;
 }
 

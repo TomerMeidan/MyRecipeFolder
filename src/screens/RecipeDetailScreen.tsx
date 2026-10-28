@@ -9,12 +9,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe } from '../types';
-import { getRecipeById, deleteRecipe, toggleFavorite } from '../db/recipeRepository';
+import { getRecipeById, deleteRecipe, toggleFavorite, saveNutrition } from '../db/recipeRepository';
+import { estimateNutrition } from '../utils/aiParser';
 import { totalTime } from '../utils/recipe';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 import { isRtlRecipe } from '../utils/rtl';
 import { useLanguage } from '../i18n/LanguageContext';
-import { categoryKey } from '../i18n/strings';
+import { categoryKey, format } from '../i18n/strings';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
@@ -29,6 +30,9 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   // Ticked-off ingredients while cooking. Screen-local only, never saved.
   const [ticked, setTicked]         = useState<Set<string>>(new Set());
+  const [estimating, setEstimating] = useState(false);
+  const [calcError, setCalcError]   = useState<string | null>(null);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const toggleTicked = (id: string) => setTicked((prev) => {
     const next = new Set(prev);
@@ -80,6 +84,21 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     if (!recipe) return;
     await toggleFavorite(recipe.id, !recipe.isFavorite);
     setRecipe({ ...recipe, isFavorite: !recipe.isFavorite });
+  };
+
+  const handleEstimate = async () => {
+    if (!recipe) return;
+    setEstimating(true);
+    setCalcError(null);
+    try {
+      const { caloriesPerServing, nutrition } = await estimateNutrition(recipe.ingredients, recipe.servings);
+      await saveNutrition(recipe.id, caloriesPerServing, nutrition);
+      setRecipe({ ...recipe, caloriesPerServing, nutrition, caloriesManual: false });
+    } catch (e: any) {
+      setCalcError(format(t('calc_calories_failed'), { error: e?.message ?? '' }));
+    } finally {
+      setEstimating(false);
+    }
   };
 
   const styles = makeStyles(theme, insets.bottom);
@@ -146,6 +165,81 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
               </View>
             </React.Fragment>
           ))}
+        </View>
+
+        {/* Calories */}
+        <View style={styles.calories}>
+          {recipe.caloriesPerServing !== undefined ? (
+            <>
+              <Pressable
+                onPress={() => setShowBreakdown((v) => !v)}
+                disabled={!recipe.nutrition}
+                style={({ pressed }) => [styles.calRow, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={recipe.nutrition ? t(showBreakdown ? 'a11y_calories_hide' : 'a11y_calories_show') : undefined}
+                accessibilityState={recipe.nutrition ? { expanded: showBreakdown } : undefined}
+              >
+                <View style={styles.calMain}>
+                  <Text style={styles.calValue}>
+                    ≈ {recipe.caloriesPerServing}<Text style={styles.factUnit}> {t('kcal_unit')}</Text>
+                  </Text>
+                  <Text style={[styles.factLabel, uiText]}>
+                    {t('per_serving')}
+                  </Text>
+                </View>
+                {recipe.nutrition && (
+                  <>
+                    {([['macro_protein', recipe.nutrition.proteinG], ['macro_carbs', recipe.nutrition.carbsG], ['macro_fat', recipe.nutrition.fatG]] as const).map(([key, g]) => (
+                      <View key={key} style={styles.macro}>
+                        <Text style={styles.macroValue}>{g}<Text style={styles.macroUnit}> {t('gram_unit')}</Text></Text>
+                        <Text style={[styles.factLabel, uiText]}>{t(key)}</Text>
+                      </View>
+                    ))}
+                    <Ionicons name={showBreakdown ? 'chevron-up' : 'chevron-down'} size={20} color={theme.textSecondary} />
+                  </>
+                )}
+              </Pressable>
+              <Text style={[styles.calNote, uiText]}>
+                {t(recipe.caloriesManual ? 'calories_manual_note' : 'calories_estimate_note')}
+              </Text>
+              {showBreakdown && recipe.nutrition && (
+                <View style={styles.breakdown}>
+                  <Text style={[styles.breakdownTitle, uiText]}>{t('calories_breakdown_title')}</Text>
+                  <View style={recipeDir}>
+                    {recipe.nutrition.ingredients.map((i, idx) => (
+                      <View key={`${idx}-${i.name}`} style={styles.breakdownRow}>
+                        <Text style={styles.breakdownName}>{i.name}</Text>
+                        <Text style={styles.breakdownKcal}>{i.kcal} {t('kcal_unit')}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
+            <Text style={[styles.calTitle, uiText]}>{t('calories_title')}</Text>
+          )}
+
+          {!recipe.caloriesManual && (
+            recipe.ingredients.some((i) => i.name.trim()) ? (
+              <TouchableOpacity
+                style={[styles.calButton, estimating && { opacity: 0.6 }]}
+                onPress={handleEstimate}
+                disabled={estimating}
+                accessibilityRole="button"
+              >
+                {estimating
+                  ? <ActivityIndicator size="small" color={theme.text} />
+                  : <Ionicons name="flame-outline" size={20} color={theme.text} />}
+                <Text style={styles.calButtonText}>
+                  {t(estimating ? 'calc_calories_busy' : recipe.caloriesPerServing !== undefined ? 'recalc_calories' : 'calc_calories')}
+                </Text>
+              </TouchableOpacity>
+            ) : recipe.caloriesPerServing === undefined && (
+              <Text style={[styles.calNote, uiText]}>{t('calories_need_ingredients')}</Text>
+            )
+          )}
+          {calcError && <Text style={[styles.calError, uiText]}>{calcError}</Text>}
         </View>
 
         {/* Ingredients */}
@@ -278,6 +372,29 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
     factUnit: { fontSize: 14, fontWeight: '700' },
     factLabel: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginTop: 2 },
     factDivider: { width: 1, height: 32, backgroundColor: theme.border },
+
+    // Calories
+    calories: { marginTop: 12, paddingVertical: 14, paddingHorizontal: 14, backgroundColor: theme.card, borderRadius: 12, gap: 10 },
+    calRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    calMain: { flex: 1 },
+    calValue: { fontSize: 24, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
+    macro: { alignItems: 'center' },
+    macroValue: { fontSize: 17, fontWeight: '800', color: theme.text, fontVariant: ['tabular-nums'] },
+    macroUnit: { fontSize: 13, fontWeight: '700' },
+    calTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
+    calNote: { fontSize: 13, color: theme.textSecondary },
+    calError: { fontSize: 15, color: theme.errorText },
+    calButton: {
+      minHeight: 48, flexDirection: 'row', gap: 8, alignSelf: 'flex-start',
+      paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, borderColor: theme.borderStrong,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    calButtonText: { fontSize: 16, fontWeight: '700', color: theme.text },
+    breakdown: { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10 },
+    breakdownTitle: { fontSize: 13, fontWeight: '700', color: theme.textSecondary, marginBottom: 4 },
+    breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 6 },
+    breakdownName: { flex: 1, fontSize: 15, color: theme.text, textAlign: 'auto' },
+    breakdownKcal: { fontSize: 15, fontWeight: '700', color: theme.text, fontVariant: ['tabular-nums'] },
 
     sectionTitle: { fontSize: 22, fontWeight: '800', color: theme.text, marginTop: 28, marginBottom: 4 },
     stepsTitle: { marginTop: 32, marginBottom: 8 },

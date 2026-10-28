@@ -15,6 +15,7 @@ export function createRecipe(partial: Partial<Recipe> = {}): Recipe {
     prepTime: 0,
     cookTime: 0,
     isFavorite: false,
+    caloriesManual: false,
     createdAt: now,
     updatedAt: now,
     ...partial,

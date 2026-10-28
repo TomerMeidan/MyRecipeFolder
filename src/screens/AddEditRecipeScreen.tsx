@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { StackActions } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory } from '../types';
+import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory, Nutrition } from '../types';
 import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
 import { createRecipe, createIngredient, createStep } from '../utils/recipe';
 import { RECIPE_CATEGORIES } from '../utils/constants';
@@ -19,6 +19,12 @@ import { categoryKey } from '../i18n/strings';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditRecipe'>;
 
+// An estimate is only valid for the exact ingredients and servings it was made from.
+const nutritionKey = (ings: Ingredient[], servings: number) =>
+  JSON.stringify([servings, ings.filter((i) => i.name.trim()).map((i) => [i.quantity.trim(), i.unit.trim(), i.name.trim()])]);
+
+interface Estimate { caloriesPerServing: number; nutrition?: Nutrition; key: string }
+
 export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const { recipeId, prefill } = route.params ?? {};
   const isEditing = !!recipeId;
@@ -28,7 +34,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(isEditing);
   const [title, setTitle] = useState(prefill?.title ?? '');
   const [category, setCategory] = useState<RecipeCategory>(prefill?.category ?? 'Other');
-  const [servings, setServings] = useState('2');
+  const [servings, setServings] = useState(String(prefill?.servings ?? 2));
   const [prepTime, setPrepTime] = useState('0');
   const [cookTime, setCookTime] = useState('0');
   const [ingredients, setIngredients] = useState<Ingredient[]>(
@@ -38,6 +44,14 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     prefill?.steps?.length ? prefill.steps : [createStep(1)],
   );
   const [isFavorite, setIsFavorite] = useState(false);
+  // Only a hand-typed number lives in this field; an estimate shows as the placeholder.
+  const [calories, setCalories] = useState('');
+  const [estimate, setEstimate] = useState<Estimate | null>(
+    prefill?.caloriesPerServing !== undefined
+      ? { caloriesPerServing: prefill.caloriesPerServing, nutrition: prefill.nutrition,
+          key: nutritionKey(prefill.ingredients ?? [], prefill.servings ?? 2) }
+      : null,
+  );
   const [saving, setSaving] = useState(false);
   const [existingRecipe, setExistingRecipe] = useState<Recipe | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -66,6 +80,12 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         setIngredients(data.ingredients.length > 0 ? data.ingredients : [createIngredient()]);
         setSteps(data.steps.length > 0 ? data.steps : [createStep(1)]);
         setIsFavorite(data.isFavorite);
+        if (data.caloriesManual && data.caloriesPerServing !== undefined) {
+          setCalories(String(data.caloriesPerServing));
+        } else if (data.caloriesPerServing !== undefined) {
+          setEstimate({ caloriesPerServing: data.caloriesPerServing, nutrition: data.nutrition,
+            key: nutritionKey(data.ingredients, data.servings) });
+        }
       }
       setLoading(false);
     });
@@ -135,6 +155,12 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     const filledIngredients = ingredients.filter((i) => i.name.trim());
     const filledSteps = steps.filter((s) => s.instruction.trim());
 
+    const servingsNum = Math.max(1, parseInt(servings) || 1);
+    const typedKcal = parseInt(calories);
+    const manual = calories.trim() !== '' && typedKcal >= 0 && typedKcal <= 10_000;
+    // Keep an estimate only if nothing it depends on changed; otherwise the recipe page offers "Calculate calories".
+    const keptEstimate = !manual && estimate && estimate.key === nutritionKey(filledIngredients, servingsNum) ? estimate : null;
+
     setSaving(true);
     try {
       const now = Date.now();
@@ -142,12 +168,15 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         ...(existingRecipe ?? {}),
         title: title.trim(),
         category,
-        servings: Math.max(1, parseInt(servings) || 1),
+        servings: servingsNum,
         prepTime: Math.max(0, parseInt(prepTime) || 0),
         cookTime: Math.max(0, parseInt(cookTime) || 0),
         ingredients: filledIngredients,
         steps: filledSteps,
         isFavorite,
+        caloriesPerServing: manual ? typedKcal : keptEstimate?.caloriesPerServing,
+        nutrition: manual ? undefined : keptEstimate?.nutrition,
+        caloriesManual: manual,
         updatedAt: now,
         ...(isEditing && existingRecipe ? { id: existingRecipe.id, createdAt: existingRecipe.createdAt } : {}),
       });
@@ -255,6 +284,20 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
             />
           </View>
         </View>
+
+        {/* Calories */}
+        <Text style={styles.label}>{t('label_calories')}</Text>
+        <TextInput
+          style={[styles.inputSmall, styles.caloriesInput]}
+          value={calories}
+          onChangeText={(v) => setCalories(v.replace(/[^0-9]/g, ''))}
+          keyboardType="number-pad"
+          maxLength={5}
+          placeholder={estimate ? `≈ ${estimate.caloriesPerServing}` : t('placeholder_calories')}
+          placeholderTextColor={theme.textSecondary}
+          accessibilityLabel={t('label_calories')}
+        />
+        <Text style={styles.hint}>{t('hint_calories')}</Text>
 
         {/* Favorite toggle */}
         <TouchableOpacity
@@ -448,6 +491,9 @@ function makeStyles(theme: ThemeColors) {
     categoryChipActive: { backgroundColor: theme.text, borderColor: theme.text },
     categoryChipText: { fontSize: 15, color: theme.text, fontWeight: '700' },
     categoryChipTextActive: { color: theme.background },
+
+    caloriesInput: { alignSelf: 'flex-start', minWidth: 140 },
+    hint: { fontSize: 13, color: theme.textSecondary, marginTop: 6 },
 
     row: { flexDirection: 'row', gap: 10 },
     rowItem: { flex: 1 },

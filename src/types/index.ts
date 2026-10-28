@@ -23,6 +23,14 @@ export type RecipeCategory =
   | 'Bread'
   | 'Other';
 
+/** Gemini's per-serving estimate. Absent when the user typed the number in. */
+export interface Nutrition {
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  ingredients: { name: string; kcal: number }[]; // whole-recipe kcal per ingredient
+}
+
 export interface Recipe {
   id: string;
   title: string;
@@ -35,6 +43,9 @@ export interface Recipe {
   prepTime: number;   // minutes
   cookTime: number;   // minutes
   isFavorite: boolean;
+  caloriesPerServing?: number;
+  nutrition?: Nutrition;
+  caloriesManual: boolean; // true = typed by the user, never overwritten by an estimate
   createdAt: number;  // unix ms
   updatedAt: number;  // unix ms
 }
@@ -44,6 +55,9 @@ export interface RecipePrefill {
   category?: RecipeCategory;
   ingredients?: Ingredient[];
   steps?: RecipeStep[];
+  servings?: number;
+  caloriesPerServing?: number;
+  nutrition?: Nutrition;
 }
 
 export type RootStackParamList = {
