@@ -12,12 +12,15 @@ import { filterRecipes } from '../db/recipeRepository';
 import { RECIPE_CATEGORIES } from '../utils/constants';
 import RecipeCard from '../components/RecipeCard';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { categoryKey } from '../i18n/strings';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavProp>();
   const { theme } = useTheme();
+  const { t, tp } = useLanguage();
 
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | null>(null);
@@ -73,15 +76,15 @@ export default function SearchScreen() {
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="Title, ingredient or category…"
+            placeholder={t('search_placeholder')}
             placeholderTextColor={theme.textSecondary}
             returnKeyType="search"
             clearButtonMode="never"
             autoCorrect={false}
-            accessibilityLabel="Search recipes"
+            accessibilityLabel={t('a11y_search')}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={clearQuery} style={styles.clearBtn} accessibilityRole="button" accessibilityLabel="Clear search">
+            <TouchableOpacity onPress={clearQuery} style={styles.clearBtn} accessibilityRole="button" accessibilityLabel={t('a11y_clear_search')}>
               <Ionicons name="close-circle" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
@@ -102,7 +105,7 @@ export default function SearchScreen() {
           accessibilityState={{ selected: favOnly }}
         >
           <Ionicons name={favOnly ? 'heart' : 'heart-outline'} size={16} color={favOnly ? theme.background : theme.text} />
-          <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>Favorites</Text>
+          <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>{t('favorites')}</Text>
         </TouchableOpacity>
         {RECIPE_CATEGORIES.map((cat) => {
           const active = selectedCategory === cat;
@@ -114,7 +117,7 @@ export default function SearchScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(categoryKey(cat))}</Text>
             </TouchableOpacity>
           );
         })}
@@ -140,7 +143,7 @@ export default function SearchScreen() {
           ListHeaderComponent={
             searched && !loading && displayed.length > 0 ? (
               <Text style={styles.resultCount}>
-                {`${displayed.length} recipe${displayed.length !== 1 ? 's' : ''}`}
+                {tp('recipes_count', displayed.length)}
               </Text>
             ) : null
           }
@@ -148,9 +151,9 @@ export default function SearchScreen() {
             searched ? (
               <View style={styles.emptyInner}>
                 <Ionicons name="search-outline" size={44} color={theme.textSecondary} />
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t('search_empty_title')}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Try a different name or ingredient, or remove the filter.
+                  {t('search_empty_body')}
                 </Text>
               </View>
             ) : null

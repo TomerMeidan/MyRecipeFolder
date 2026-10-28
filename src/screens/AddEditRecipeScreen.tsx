@@ -14,6 +14,8 @@ import { createRecipe, createIngredient, createStep } from '../utils/recipe';
 import { RECIPE_CATEGORIES } from '../utils/constants';
 import { isRtlText } from '../utils/rtl';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { categoryKey } from '../i18n/strings';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditRecipe'>;
 
@@ -21,6 +23,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   const { recipeId, prefill } = route.params ?? {};
   const isEditing = !!recipeId;
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(isEditing);
   const [title, setTitle] = useState(prefill?.title ?? '');
@@ -47,8 +50,8 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
   }, []);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: isEditing ? 'Edit Recipe' : prefill ? 'Edit Scanned Recipe' : 'Add Recipe' });
-  }, [isEditing, prefill]);
+    navigation.setOptions({ title: t(isEditing ? 'title_edit_recipe' : prefill ? 'title_edit_scanned' : 'title_add_recipe') });
+  }, [isEditing, prefill, t]);
 
   useEffect(() => {
     if (!isEditing || !recipeId) return;
@@ -125,7 +128,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Missing title', 'Please enter a recipe title.');
+      Alert.alert(t('missing_title'), t('missing_title_msg'));
       return;
     }
 
@@ -151,11 +154,11 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
 
       if (isEditing) {
         await updateRecipe(recipe);
-        showToast('Recipe updated!', 'success');
+        showToast(t('toast_updated'), 'success');
         setTimeout(() => navigation.goBack(), 1200);
       } else {
         await insertRecipe(recipe);
-        showToast('Recipe saved!', 'success');
+        showToast(t('toast_saved'), 'success');
         if (prefill) {
           setTimeout(() => navigation.dispatch(StackActions.replace('ScanRecipe')), 1500);
         } else {
@@ -163,7 +166,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         }
       }
     } catch (e) {
-      showToast('Could not save the recipe. Please try again.', 'error');
+      showToast(t('toast_save_failed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -175,8 +178,9 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     return <View style={styles.center}><ActivityIndicator size="large" color={theme.primary} /></View>;
   }
 
-  // Form content follows the recipe's language (judged from the title as typed).
-  const direction = isRtlText(title) ? 'rtl' : 'ltr';
+  // The form follows the UI language; each free-text field aligns to its own content,
+  // so a Hebrew recipe reads right-aligned even in an English UI (and vice versa).
+  const align = (v: string) => ({ textAlign: isRtlText(v) ? 'right' : 'left' } as const);
 
   return (
     <View style={styles.container}>
@@ -184,21 +188,21 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={[styles.scroll, { direction }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Title */}
-        <Text style={styles.label}>Title</Text>
+        <Text style={styles.label}>{t('label_title')}</Text>
         <TextInput
-          style={[styles.input, styles.titleInput]}
+          style={[styles.input, styles.titleInput, align(title)]}
           value={title}
           onChangeText={setTitle}
-          placeholder="e.g. Spaghetti Bolognese"
+          placeholder={t('title_placeholder')}
           placeholderTextColor={theme.textSecondary}
-          accessibilityLabel="Title (required)"
+          accessibilityLabel={t('a11y_title_required')}
         />
 
         {/* Category */}
-        <Text style={styles.label}>Category</Text>
+        <Text style={styles.label}>{t('label_category')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {RECIPE_CATEGORIES.map((cat) => (
             <TouchableOpacity
@@ -209,7 +213,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
               accessibilityState={{ selected: category === cat }}
             >
               <Text style={[styles.categoryChipText, category === cat && styles.categoryChipTextActive]}>
-                {cat}
+                {t(categoryKey(cat))}
               </Text>
             </TouchableOpacity>
           ))}
@@ -218,7 +222,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         {/* Numeric row */}
         <View style={styles.row}>
           <View style={styles.rowItem}>
-            <Text style={styles.label}>Servings</Text>
+            <Text style={styles.label}>{t('label_servings')}</Text>
             <TextInput
               style={styles.inputSmall}
               value={servings}
@@ -229,7 +233,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
             />
           </View>
           <View style={styles.rowItem}>
-            <Text style={styles.label}>Prep (min)</Text>
+            <Text style={styles.label}>{t('label_prep_min')}</Text>
             <TextInput
               style={styles.inputSmall}
               value={prepTime}
@@ -240,7 +244,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
             />
           </View>
           <View style={styles.rowItem}>
-            <Text style={styles.label}>Cook (min)</Text>
+            <Text style={styles.label}>{t('label_cook_min')}</Text>
             <TextInput
               style={styles.inputSmall}
               value={cookTime}
@@ -261,40 +265,40 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         >
           <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={26} color={isFavorite ? theme.primary : theme.textSecondary} />
           <Text style={styles.favoriteLabel}>
-            {isFavorite ? 'Saved as favorite' : 'Mark as favorite'}
+            {t(isFavorite ? 'fav_saved' : 'fav_mark')}
           </Text>
         </TouchableOpacity>
 
         {/* Ingredients */}
-        <Text style={styles.sectionTitle}>Ingredients</Text>
+        <Text style={styles.sectionTitle}>{t('ingredients')}</Text>
         <View style={styles.ingredientHeader}>
-          <Text style={[styles.colLabel, { flex: 2 }]}>Ingredient</Text>
-          <Text style={[styles.colLabel, { flex: 1 }]}>Qty</Text>
-          <Text style={[styles.colLabel, { flex: 1 }]}>Unit</Text>
+          <Text style={[styles.colLabel, { flex: 2 }]}>{t('col_ingredient')}</Text>
+          <Text style={[styles.colLabel, { flex: 1 }]}>{t('col_qty')}</Text>
+          <Text style={[styles.colLabel, { flex: 1 }]}>{t('col_unit')}</Text>
           <View style={{ width: 86 }} />
         </View>
         {ingredients.map((ing, i) => (
           <View key={ing.id} style={styles.ingredientRow}>
             <TextInput
-              style={[styles.inlineInput, { flex: 2 }]}
+              style={[styles.inlineInput, { flex: 2 }, align(ing.name)]}
               value={ing.name}
               onChangeText={(v) => updateIngredient(i, 'name', v)}
-              placeholder="Ingredient"
+              placeholder={t('ph_ingredient')}
               placeholderTextColor={theme.textSecondary}
             />
             <TextInput
               style={[styles.inlineInput, { flex: 1 }]}
               value={ing.quantity}
               onChangeText={(v) => updateIngredient(i, 'quantity', v)}
-              placeholder="qty"
+              placeholder={t('ph_qty')}
               placeholderTextColor={theme.textSecondary}
               keyboardType="decimal-pad"
             />
             <TextInput
-              style={[styles.inlineInput, { flex: 1 }]}
+              style={[styles.inlineInput, { flex: 1 }, align(ing.unit)]}
               value={ing.unit}
               onChangeText={(v) => updateIngredient(i, 'unit', v)}
-              placeholder="unit"
+              placeholder={t('ph_unit')}
               placeholderTextColor={theme.textSecondary}
             />
             <View style={styles.moveCol}>
@@ -303,7 +307,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 onPress={() => moveIngredient(i, -1)}
                 disabled={i === 0}
                 accessibilityRole="button"
-                accessibilityLabel="Move ingredient up"
+                accessibilityLabel={t('a11y_move_ing_up')}
               >
                 <Ionicons name="chevron-up" size={20} color={i === 0 ? theme.border : theme.text} />
               </TouchableOpacity>
@@ -312,7 +316,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 onPress={() => moveIngredient(i, 1)}
                 disabled={i === ingredients.length - 1}
                 accessibilityRole="button"
-                accessibilityLabel="Move ingredient down"
+                accessibilityLabel={t('a11y_move_ing_down')}
               >
                 <Ionicons name="chevron-down" size={20} color={i === ingredients.length - 1 ? theme.border : theme.text} />
               </TouchableOpacity>
@@ -321,7 +325,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
               onPress={() => removeIngredient(i)}
               style={styles.removeBtn}
               accessibilityRole="button"
-              accessibilityLabel="Remove ingredient"
+              accessibilityLabel={t('a11y_remove_ing')}
             >
               <Ionicons name="close" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
@@ -329,21 +333,21 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         ))}
         <TouchableOpacity style={styles.addRowBtn} onPress={addIngredient} accessibilityRole="button">
           <Ionicons name="add-circle-outline" size={22} color={theme.text} />
-          <Text style={styles.addRowBtnText}>Add Ingredient</Text>
+          <Text style={styles.addRowBtnText}>{t('add_ingredient')}</Text>
         </TouchableOpacity>
 
         {/* Steps */}
-        <Text style={styles.sectionTitle}>Steps</Text>
+        <Text style={styles.sectionTitle}>{t('steps')}</Text>
         {steps.map((step, i) => (
           <View key={i} style={styles.stepRow}>
             <View style={styles.stepCircle}>
               <Text style={styles.stepCircleText}>{step.order}</Text>
             </View>
             <TextInput
-              style={styles.stepInput}
+              style={[styles.stepInput, align(step.instruction)]}
               value={step.instruction}
               onChangeText={(v) => updateStep(i, v)}
-              placeholder={`Step ${step.order}...`}
+              placeholder={t('step_placeholder', { n: step.order })}
               placeholderTextColor={theme.textSecondary}
               multiline
             />
@@ -353,7 +357,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 onPress={() => moveStep(i, -1)}
                 disabled={i === 0}
                 accessibilityRole="button"
-                accessibilityLabel="Move step up"
+                accessibilityLabel={t('a11y_move_step_up')}
               >
                 <Ionicons name="chevron-up" size={20} color={i === 0 ? theme.border : theme.text} />
               </TouchableOpacity>
@@ -362,7 +366,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
                 onPress={() => moveStep(i, 1)}
                 disabled={i === steps.length - 1}
                 accessibilityRole="button"
-                accessibilityLabel="Move step down"
+                accessibilityLabel={t('a11y_move_step_down')}
               >
                 <Ionicons name="chevron-down" size={20} color={i === steps.length - 1 ? theme.border : theme.text} />
               </TouchableOpacity>
@@ -371,7 +375,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
               onPress={() => removeStep(i)}
               style={styles.removeBtn}
               accessibilityRole="button"
-              accessibilityLabel="Remove step"
+              accessibilityLabel={t('a11y_remove_step')}
             >
               <Ionicons name="close" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
@@ -379,7 +383,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         ))}
         <TouchableOpacity style={styles.addRowBtn} onPress={addStep} accessibilityRole="button">
           <Ionicons name="add-circle-outline" size={22} color={theme.text} />
-          <Text style={styles.addRowBtnText}>Add Step</Text>
+          <Text style={styles.addRowBtnText}>{t('add_step')}</Text>
         </TouchableOpacity>
 
         {/* Save */}
@@ -391,7 +395,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         >
           {saving
             ? <ActivityIndicator color={theme.onPrimary} />
-            : <Text style={styles.saveButtonText}>{isEditing ? 'Update Recipe' : 'Save Recipe'}</Text>
+            : <Text style={styles.saveButtonText}>{t(isEditing ? 'update_recipe' : 'save_recipe')}</Text>
           }
         </TouchableOpacity>
 
@@ -408,7 +412,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
           />
           <Text style={[styles.toastText, toast.type === 'error' && styles.toastTextError]}>{toast.message}</Text>
         </View>
-        <Text style={[styles.toastDismiss, toast.type === 'error' && styles.toastTextError]}>Tap to dismiss</Text>
+        <Text style={[styles.toastDismiss, toast.type === 'error' && styles.toastTextError]}>{t('tap_to_dismiss')}</Text>
       </TouchableOpacity>
     )}
     </View>

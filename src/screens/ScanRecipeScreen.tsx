@@ -13,6 +13,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { parseRecipeFromImages, RecipeImage } from '../utils/aiParser';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { langKey } from '../i18n/strings';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -74,9 +76,12 @@ interface PickerProps {
 
 function LangPickerModal({ visible, selected, includeAuto, title, onSelect, onClose }: PickerProps) {
   const { theme } = useTheme();
-  const items = includeAuto
-    ? [{ code: '', label: 'Auto-detect', native: '' }, ...LANGUAGES]
-    : [{ code: '', label: 'Keep original language', native: '' }, ...LANGUAGES];
+  const { t } = useLanguage();
+  // Labels shown in the UI language; langName() still sends English names to the API.
+  const items = [
+    { code: '', label: t(includeAuto ? 'lang_auto_detect' : 'lang_keep_original'), native: '' },
+    ...LANGUAGES.map((l) => ({ ...l, label: t(langKey(l.code)) })),
+  ];
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -84,7 +89,7 @@ function LangPickerModal({ visible, selected, includeAuto, title, onSelect, onCl
       <SafeAreaView style={[pickerStyles.sheet, { backgroundColor: theme.card }]}>
         <View style={[pickerStyles.header, { borderBottomColor: theme.border }]}>
           <Text style={[pickerStyles.title, { color: theme.text }]}>{title}</Text>
-          <TouchableOpacity onPress={onClose} style={pickerStyles.close} accessibilityRole="button" accessibilityLabel="Close">
+          <TouchableOpacity onPress={onClose} style={pickerStyles.close} accessibilityRole="button" accessibilityLabel={t('close')}>
             <Ionicons name="close" size={24} color={theme.text} />
           </TouchableOpacity>
         </View>
@@ -128,6 +133,7 @@ const pickerStyles = StyleSheet.create({
 export default function ScanRecipeScreen() {
   const navigation = useNavigation<NavProp>();
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const [step, setStep]               = useState<Step>('pick');
   const [images, setImages]           = useState<RecipeImage[]>([]);
@@ -256,7 +262,7 @@ export default function ScanRecipeScreen() {
       ));
       setShowCrop(false);
     } catch (e: any) {
-      Alert.alert('Crop failed', e?.message ?? 'Could not crop.');
+      Alert.alert(t('crop_failed'), e?.message ?? t('crop_failed_msg'));
     } finally {
       setIsCropApplying(false);
     }
@@ -270,7 +276,7 @@ export default function ScanRecipeScreen() {
     let result: ImagePicker.ImagePickerResult;
     if (fromCamera) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
+      if (!perm.granted) { Alert.alert(t('permission_needed'), t('camera_required')); return; }
       result = await ImagePicker.launchCameraAsync({
         mediaTypes: 'images',
         allowsEditing: true,   // ← native crop happens inside the camera UI
@@ -278,7 +284,7 @@ export default function ScanRecipeScreen() {
       });
     } else {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Permission needed', 'Photo library access is required.'); return; }
+      if (!perm.granted) { Alert.alert(t('permission_needed'), t('library_required')); return; }
       result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'images',
         allowsEditing: true,   // ← native crop happens inside the photo picker
@@ -311,10 +317,10 @@ export default function ScanRecipeScreen() {
 
   const handleAddMore = () => {
     if (Platform.OS === 'web') { pickImage(false); return; }
-    Alert.alert('Add Photo', undefined, [
-      { text: 'Take Photo', onPress: () => pickImage(true) },
-      { text: 'Choose from Library', onPress: () => pickImage(false) },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('add_photo'), undefined, [
+      { text: t('take_photo'), onPress: () => pickImage(true) },
+      { text: t('choose_library'), onPress: () => pickImage(false) },
+      { text: t('cancel'), style: 'cancel' },
     ]);
   };
 
@@ -348,7 +354,7 @@ export default function ScanRecipeScreen() {
       setStep('preview');
       navigation.navigate('AddEditRecipe', { prefill: result });
     } catch (e: any) {
-      const msg: string = e?.message ?? 'Unknown error';
+      const msg: string = e?.message ?? t('unknown_error');
       console.error('[Gemini]', msg);
       setErrorMsg(msg);
       setStep('preview');
@@ -369,7 +375,7 @@ export default function ScanRecipeScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.statusMsg}>Analyzing recipe…</Text>
+        <Text style={styles.statusMsg}>{t('analyzing')}</Text>
         <Text style={styles.statusHint}>Gemini 3.8 Flash</Text>
         <Text style={styles.statusModel}>gemini-3.8-flash</Text>
       </View>
@@ -381,18 +387,17 @@ export default function ScanRecipeScreen() {
   if (step === 'pick') {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>Scan a Recipe</Text>
+        <Text style={styles.heading}>{t('scan_heading')}</Text>
         <Text style={styles.subtitle}>
-          Take a photo or upload a recipe page — add up to {MAX_IMAGES} photos{'\n'}
-          (e.g. multiple pages). You can crop each one in the next step.
+          {t('scan_subtitle', { max: MAX_IMAGES })}
         </Text>
         <TouchableOpacity style={styles.primaryBtn} onPress={() => pickImage(true)} accessibilityRole="button">
           <Ionicons name="camera-outline" size={24} color={theme.onPrimary} />
-          <Text style={styles.primaryBtnText}>Take Photo</Text>
+          <Text style={styles.primaryBtnText}>{t('take_photo')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryBtn} onPress={() => pickImage(false)} accessibilityRole="button">
           <Ionicons name="images-outline" size={24} color={theme.text} />
-          <Text style={styles.secondaryBtnText}>Choose from Library</Text>
+          <Text style={styles.secondaryBtnText}>{t('choose_library')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -408,7 +413,7 @@ export default function ScanRecipeScreen() {
             <Image source={{ uri: activeImage.uri }} style={styles.preview} resizeMode="contain" />
             <TouchableOpacity style={styles.cropBtn} onPress={openCrop} accessibilityRole="button">
               <Ionicons name="crop" size={20} color={theme.onPrimary} />
-              <Text style={styles.cropBtnText}>Crop Photo</Text>
+              <Text style={styles.cropBtnText}>{t('crop_photo')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -427,14 +432,14 @@ export default function ScanRecipeScreen() {
                 onPress={() => removeImage(i)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Remove photo ${i + 1}`}
+                accessibilityLabel={t('a11y_remove_photo', { n: i + 1 })}
               >
                 <Ionicons name="close" size={18} color={theme.background} />
               </TouchableOpacity>
             </TouchableOpacity>
           ))}
           {images.length < MAX_IMAGES && (
-            <TouchableOpacity style={styles.thumbAdd} onPress={handleAddMore} accessibilityRole="button" accessibilityLabel="Add another photo">
+            <TouchableOpacity style={styles.thumbAdd} onPress={handleAddMore} accessibilityRole="button" accessibilityLabel={t('a11y_add_photo')}>
               <Ionicons name="add" size={26} color={theme.text} />
               <Text style={styles.thumbAddLabel}>{images.length}/{MAX_IMAGES}</Text>
             </TouchableOpacity>
@@ -443,43 +448,43 @@ export default function ScanRecipeScreen() {
 
         {errorMsg && (
           <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerTitle}>Analysis failed</Text>
+            <Text style={styles.errorBannerTitle}>{t('analysis_failed')}</Text>
             <Text style={styles.errorBannerMsg}>{errorMsg}</Text>
           </View>
         )}
 
         {/* Language settings */}
         <View style={styles.langCard}>
-          <Text style={styles.langCardLabel}>Recipe is written in</Text>
+          <Text style={styles.langCardLabel}>{t('recipe_written_in')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
             {QUICK_SOURCE.map((l) => {
               const active = sourceLang === l.code;
               return (
-                <TouchableOpacity key={l.code} style={[styles.quickChip, active && styles.quickChipActive]} onPress={() => setSourceLang(l.code)}>
-                  <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>{l.label}</Text>
+                <TouchableOpacity key={l.code} style={[styles.quickChip, active && styles.quickChipActive]} onPress={() => setSourceLang(l.code)} accessibilityLabel={t(langKey(l.code || 'auto'))}>
+                  <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>{l.code ? l.label : t('lang_auto')}</Text>
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.quickChip} onPress={() => setShowSrcPicker(true)} accessibilityRole="button" accessibilityLabel="More recipe languages">
-              <Text style={styles.quickChipText}>More</Text>
+            <TouchableOpacity style={styles.quickChip} onPress={() => setShowSrcPicker(true)} accessibilityRole="button" accessibilityLabel={t('a11y_more_source')}>
+              <Text style={styles.quickChipText}>{t('more')}</Text>
               <Ionicons name="chevron-down" size={16} color={theme.text} />
             </TouchableOpacity>
           </ScrollView>
 
           <View style={styles.langDivider} />
 
-          <Text style={styles.langCardLabel}>Output language</Text>
+          <Text style={styles.langCardLabel}>{t('output_language')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
             {QUICK_OUTPUT.map((l) => {
               const active = outputLang === l.code;
               return (
                 <TouchableOpacity key={l.code} style={[styles.quickChip, active && styles.quickChipActive]} onPress={() => setOutputLang(l.code)}>
-                  <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>{l.label}</Text>
+                  <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>{t(langKey(l.code || 'original'))}</Text>
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.quickChip} onPress={() => setShowOutPicker(true)} accessibilityRole="button" accessibilityLabel="More output languages">
-              <Text style={styles.quickChipText}>More</Text>
+            <TouchableOpacity style={styles.quickChip} onPress={() => setShowOutPicker(true)} accessibilityRole="button" accessibilityLabel={t('a11y_more_output')}>
+              <Text style={styles.quickChipText}>{t('more')}</Text>
               <Ionicons name="chevron-down" size={16} color={theme.text} />
             </TouchableOpacity>
           </ScrollView>
@@ -487,18 +492,18 @@ export default function ScanRecipeScreen() {
 
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.ghostBtn} onPress={handleReset} accessibilityRole="button">
-            <Text style={styles.ghostBtnText}>Retake</Text>
+            <Text style={styles.ghostBtnText}>{t('retake')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.primaryBtn, styles.flex1]} onPress={() => handleAnalyze()} accessibilityRole="button">
             <Ionicons name="sparkles-outline" size={22} color={theme.onPrimary} />
-            <Text style={styles.primaryBtnText}>Analyze Recipe</Text>
+            <Text style={styles.primaryBtnText}>{t('analyze_recipe')}</Text>
           </TouchableOpacity>
         </View>
 
         <LangPickerModal visible={showSrcPicker} selected={sourceLang} includeAuto
-          title="Recipe language" onSelect={setSourceLang} onClose={() => setShowSrcPicker(false)} />
+          title={t('recipe_language')} onSelect={setSourceLang} onClose={() => setShowSrcPicker(false)} />
         <LangPickerModal visible={showOutPicker} selected={outputLang}
-          title="Output language" onSelect={setOutputLang} onClose={() => setShowOutPicker(false)} />
+          title={t('output_language')} onSelect={setOutputLang} onClose={() => setShowOutPicker(false)} />
 
         <CropModal
           visible={showCrop} imageUri={activeImage?.uri ?? null}
@@ -525,19 +530,20 @@ function CropModal({ visible, imageUri, panTL, panTR, panBL, panBR, panCenter, c
   onApply: () => void; onCancel: () => void;
   theme: ThemeColors;
 }) {
+  const { t } = useLanguage();
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onCancel}>
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: theme.border }}>
           <TouchableOpacity onPress={onCancel} style={{ minHeight: 48, minWidth: 64, justifyContent: 'center', paddingHorizontal: 8 }}>
-            <Text style={{ color: theme.textSecondary, fontSize: 17, fontWeight: '700' }}>Cancel</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 17, fontWeight: '700' }}>{t('cancel')}</Text>
           </TouchableOpacity>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>Crop Photo</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{t('crop_photo')}</Text>
           {isCropApplying
             ? <ActivityIndicator color={theme.primary} />
             : <TouchableOpacity onPress={onApply} style={{ minHeight: 48, minWidth: 64, justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Done</Text>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>{t('done')}</Text>
               </TouchableOpacity>
           }
         </View>
@@ -582,7 +588,7 @@ function CropModal({ visible, imageUri, panTL, panTR, panBL, panBR, panCenter, c
         </View>
 
         <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 15, paddingBottom: 20 }}>
-          Drag corners to resize • Drag centre to move
+          {t('crop_hint')}
         </Text>
       </SafeAreaView>
     </Modal>

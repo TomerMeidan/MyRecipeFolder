@@ -13,12 +13,15 @@ import { getRecipeById, deleteRecipe, toggleFavorite } from '../db/recipeReposit
 import { totalTime } from '../utils/recipe';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 import { isRtlRecipe } from '../utils/rtl';
+import { useLanguage } from '../i18n/LanguageContext';
+import { categoryKey } from '../i18n/strings';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
 export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { recipeId } = route.params;
   const { theme } = useTheme();
+  const { t, isRTL } = useLanguage();
   const insets = useSafeAreaInsets();
   const [recipe, setRecipe]         = useState<Recipe | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -52,9 +55,9 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     if (Platform.OS === 'web') {
       setConfirmVisible(true);
     } else {
-      Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+      Alert.alert(t('delete_title'), t('delete_confirm'), [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('delete'), style: 'destructive', onPress: confirmDelete },
       ]);
     }
   };
@@ -67,9 +70,9 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
       navigation.goBack();
     } catch (e: any) {
       setDeleting(false);
-      const msg = e?.message ?? 'Could not delete the recipe.';
+      const msg = e?.message ?? t('delete_failed_msg');
       console.error('[Delete]', msg);
-      Alert.alert('Delete failed', msg);
+      Alert.alert(t('delete_failed'), msg);
     }
   };
 
@@ -86,31 +89,35 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   }
 
   if (!recipe) {
-    return <View style={styles.center}><Text style={styles.errorText}>Recipe not found.</Text></View>;
+    return <View style={styles.center}><Text style={styles.errorText}>{t('recipe_not_found')}</Text></View>;
   }
 
-  // The recipe body follows the recipe's language; rows and text inherit it.
-  const direction = isRtlRecipe(recipe) ? 'rtl' : 'ltr';
+  // Recipe content (title, ingredients, steps) follows the recipe's language.
+  // Everything else - facts, section titles, buttons - follows the UI language.
+  const recipeDir = { direction: isRtlRecipe(recipe) ? 'rtl' : 'ltr' } as const;
+  const uiText = { writingDirection: isRTL ? 'rtl' : 'ltr' } as const;
+  const minUnit = ` ${t('min_unit')}`;
 
   const facts = [
-    { label: 'Servings', value: recipe.servings, unit: '' },
-    { label: 'Prep',     value: recipe.prepTime, unit: ' min' },
-    { label: 'Cook',     value: recipe.cookTime, unit: ' min' },
-    { label: 'Total',    value: totalTime(recipe), unit: ' min' },
+    { label: t('fact_servings'), value: recipe.servings, unit: '' },
+    { label: t('fact_prep'),     value: recipe.prepTime, unit: minUnit },
+    { label: t('fact_cook'),     value: recipe.cookTime, unit: minUnit },
+    { label: t('fact_total'),    value: totalTime(recipe), unit: minUnit },
   ];
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.scroll, { direction }]}>
+      <ScrollView contentContainerStyle={styles.scroll}>
 
         {/* Header */}
+        <View style={recipeDir}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>{recipe.title}</Text>
           <Pressable
             onPress={handleToggleFavorite}
             style={({ pressed }) => [styles.favButton, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel={recipe.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            accessibilityLabel={t(recipe.isFavorite ? 'a11y_fav_remove' : 'a11y_fav_add')}
             accessibilityState={{ selected: recipe.isFavorite }}
           >
             <Ionicons
@@ -122,7 +129,8 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.tag}>
-          <Text style={styles.tagText}>{recipe.category}</Text>
+          <Text style={[styles.tagText, uiText]}>{t(categoryKey(recipe.category))}</Text>
+        </View>
         </View>
 
         {/* Key facts */}
@@ -134,16 +142,17 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
                 <Text style={styles.factValue}>
                   {f.value}<Text style={styles.factUnit}>{f.unit}</Text>
                 </Text>
-                <Text style={styles.factLabel}>{f.label}</Text>
+                <Text style={[styles.factLabel, uiText]}>{f.label}</Text>
               </View>
             </React.Fragment>
           ))}
         </View>
 
         {/* Ingredients */}
-        <Text style={styles.sectionTitle}>Ingredients</Text>
+        <Text style={[styles.sectionTitle, uiText]}>{t('ingredients')}</Text>
+        <View style={recipeDir}>
         {recipe.ingredients.length === 0
-          ? <Text style={styles.emptySection}>No ingredients added.</Text>
+          ? <Text style={[styles.emptySection, uiText]}>{t('no_ingredients')}</Text>
           : recipe.ingredients.map((ing) => {
             const done = ticked.has(ing.id);
             const amount = [ing.quantity, ing.unit].filter(Boolean).join(' ');
@@ -172,11 +181,13 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
             );
           })
         }
+        </View>
 
         {/* Steps */}
-        <Text style={[styles.sectionTitle, styles.stepsTitle]}>How to Make It</Text>
+        <Text style={[styles.sectionTitle, styles.stepsTitle, uiText]}>{t('how_to_make')}</Text>
+        <View style={recipeDir}>
         {recipe.steps.length === 0
-          ? <Text style={styles.emptySection}>No steps added.</Text>
+          ? <Text style={[styles.emptySection, uiText]}>{t('no_steps')}</Text>
           : recipe.steps.map((step) => (
             <View key={step.order} style={styles.stepRow}>
               <View style={styles.stepNumber}>
@@ -186,6 +197,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
             </View>
           ))
         }
+        </View>
 
       </ScrollView>
 
@@ -195,20 +207,20 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
           style={styles.editButton}
           onPress={() => navigation.navigate('AddEditRecipe', { recipeId: recipe.id })}
           accessibilityRole="button"
-          accessibilityLabel="Edit recipe"
+          accessibilityLabel={t('a11y_edit_recipe')}
         >
           <Ionicons name="create-outline" size={22} color={theme.onPrimary} />
-          <Text style={styles.editButtonText}>Edit Recipe</Text>
+          <Text style={styles.editButtonText}>{t('edit_recipe')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
           onPress={handleDelete}
           disabled={deleting}
           accessibilityRole="button"
-          accessibilityLabel="Delete recipe"
+          accessibilityLabel={t('a11y_delete_recipe')}
         >
           <Ionicons name="trash-outline" size={20} color={theme.errorText} />
-          <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete'}</Text>
+          <Text style={styles.deleteButtonText}>{deleting ? t('deleting') : t('delete')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -216,16 +228,16 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
       <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Delete Recipe</Text>
-            <Text style={[styles.modalMsg, { color: theme.textSecondary }]}>
-              Are you sure you want to delete this recipe? This cannot be undone.
+            <Text style={[styles.modalTitle, { color: theme.text }, uiText]}>{t('delete_title')}</Text>
+            <Text style={[styles.modalMsg, { color: theme.textSecondary }, uiText]}>
+              {t('delete_confirm_long')}
             </Text>
             <View style={styles.modalBtns}>
               <TouchableOpacity style={[styles.modalCancel, { borderColor: theme.border }]} onPress={() => setConfirmVisible(false)}>
-                <Text style={[styles.modalCancelText, { color: theme.text }]}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: theme.text }]}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalDelete} onPress={confirmDelete}>
-                <Text style={styles.modalDeleteText}>Delete</Text>
+                <Text style={styles.modalDeleteText}>{t('delete')}</Text>
               </TouchableOpacity>
             </View>
           </View>

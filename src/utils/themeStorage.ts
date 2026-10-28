@@ -3,25 +3,26 @@ import * as SecureStore from 'expo-secure-store';
 import type { ColorSchemeType } from '../theme/ThemeContext';
 
 const STORAGE_KEY = 'theme-prefs';
+const LANG_KEY = 'ui-lang';
 
 interface ThemePrefs {
   isDarkMode: boolean;
   colorScheme: ColorSchemeType;
 }
 
-async function readRaw(): Promise<string | null> {
-  if (Platform.OS === 'web') return localStorage.getItem(STORAGE_KEY);
-  return SecureStore.getItemAsync(STORAGE_KEY);
+async function readRaw(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') return localStorage.getItem(key);
+  return SecureStore.getItemAsync(key);
 }
 
-async function writeRaw(value: string): Promise<void> {
-  if (Platform.OS === 'web') { localStorage.setItem(STORAGE_KEY, value); return; }
-  await SecureStore.setItemAsync(STORAGE_KEY, value);
+async function writeRaw(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
+  await SecureStore.setItemAsync(key, value);
 }
 
 export async function getStoredTheme(): Promise<ThemePrefs | null> {
   try {
-    const raw = await readRaw();
+    const raw = await readRaw(STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as ThemePrefs;
   } catch {
@@ -31,8 +32,24 @@ export async function getStoredTheme(): Promise<ThemePrefs | null> {
 
 export async function setStoredTheme(prefs: ThemePrefs): Promise<void> {
   try {
-    await writeRaw(JSON.stringify(prefs));
+    await writeRaw(STORAGE_KEY, JSON.stringify(prefs));
   } catch {
     // Best-effort — losing the persisted theme preference isn't worth surfacing to the user.
+  }
+}
+
+export async function getStoredLanguage(): Promise<string | null> {
+  try {
+    return await readRaw(LANG_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function setStoredLanguage(lang: string): Promise<void> {
+  try {
+    await writeRaw(LANG_KEY, lang);
+  } catch {
+    // Best-effort, like the theme preference.
   }
 }

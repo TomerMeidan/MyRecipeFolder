@@ -5,6 +5,8 @@ import { Recipe } from '../types';
 import { totalTime } from '../utils/recipe';
 import { isRtlRecipe } from '../utils/rtl';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { categoryKey } from '../i18n/strings';
 
 interface Props {
   recipe: Recipe;
@@ -13,6 +15,7 @@ interface Props {
 
 export default function RecipeCard({ recipe, onPress }: Props) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const minutes = totalTime(recipe);
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -26,17 +29,17 @@ export default function RecipeCard({ recipe, onPress }: Props) {
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
         {recipe.isFavorite && (
-          <Ionicons name="heart" size={20} color={theme.primary} accessibilityLabel="Favorite" />
+          <Ionicons name="heart" size={20} color={theme.primary} accessibilityLabel={t('favorite')} />
         )}
       </View>
 
       <View style={styles.meta}>
         <View style={styles.tag}>
-          <Text style={styles.tagText}>{recipe.category}</Text>
+          <Text style={styles.tagText}>{t(categoryKey(recipe.category))}</Text>
         </View>
         <View style={styles.metaItem}>
           <Ionicons name="time-outline" size={17} color={theme.textSecondary} />
-          <Text style={styles.metaText}>{minutes > 0 ? `${minutes} min` : '—'}</Text>
+          <Text style={styles.metaText}>{minutes > 0 ? t('minutes_short', { n: minutes }) : '—'}</Text>
         </View>
         <View style={styles.metaItem}>
           <Ionicons name="people-outline" size={17} color={theme.textSecondary} />

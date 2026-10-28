@@ -7,10 +7,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +22,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      setError('Please enter your email and password.');
+      setError(t('login_missing'));
       return;
     }
     setError('');
@@ -44,42 +46,42 @@ export default function LoginScreen() {
           <Ionicons name="restaurant" size={36} color={theme.text} />
         </View>
         <Text style={styles.title}>My Recipe Folder</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
 
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t('email')}</Text>
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={(v) => { setEmail(v); setError(''); }}
-          placeholder="Enter your email"
+          placeholder={t('email_placeholder')}
           placeholderTextColor={theme.textSecondary}
           autoCapitalize="none"
           keyboardType="email-address"
           autoCorrect={false}
           returnKeyType="next"
-          accessibilityLabel="Email"
+          accessibilityLabel={t('email')}
         />
 
-        <Text style={styles.label}>Password</Text>
+        <Text style={styles.label}>{t('password')}</Text>
         <View style={styles.passRow}>
           <TextInput
             style={[styles.input, styles.passInput]}
             value={password}
             onChangeText={(v) => { setPassword(v); setError(''); }}
-            placeholder="Enter your password"
+            placeholder={t('password_placeholder')}
             placeholderTextColor={theme.textSecondary}
             secureTextEntry={!showPass}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="done"
             onSubmitEditing={handleLogin}
-            accessibilityLabel="Password"
+            accessibilityLabel={t('password')}
           />
           <TouchableOpacity
             style={styles.eyeBtn}
             onPress={() => setShowPass((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
+            accessibilityLabel={t(showPass ? 'hide_password' : 'show_password')}
           >
             <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.text} />
           </TouchableOpacity>
@@ -100,7 +102,7 @@ export default function LoginScreen() {
         >
           {loading
             ? <ActivityIndicator color={theme.onPrimary} />
-            : <Text style={styles.loginBtnText}>Sign In</Text>
+            : <Text style={styles.loginBtnText}>{t('sign_in')}</Text>
           }
         </TouchableOpacity>
 
