@@ -11,6 +11,8 @@ import { supabase } from '../lib/supabase';
 // Swatch colours preview each scheme, so they are literal on purpose.
 const SCHEMES: Array<{ key: ColorSchemeType; color: string }> = [
   { key: 'kitchen', color: '#FFE45C' },
+  { key: 'green',   color: '#10B981' },
+  { key: 'darkgreen', color: '#14532D' },
   { key: 'default', color: '#E05C2D' },
   { key: 'blue',    color: '#2563EB' },
   { key: 'black',   color: '#0F172A' },

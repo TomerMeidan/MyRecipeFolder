@@ -22,7 +22,7 @@ export interface ThemeColors {
   borderStrong: string;
 }
 
-export type ColorSchemeType = 'default' | 'blue' | 'black' | 'white' | 'kitchen';
+export type ColorSchemeType = 'default' | 'blue' | 'black' | 'white' | 'kitchen' | 'green' | 'darkgreen';
 
 // Kitchen Mode: arm's-length reading, high contrast, yellow highlighter.
 const KITCHEN_LIGHT: ThemeColors = {
@@ -38,6 +38,37 @@ const KITCHEN_DARK: ThemeColors = {
   warningBox: '#2E2514', warningText: '#F59E0B', errorBox: '#3B1B1B', errorText: '#EF4444',
 };
 
+// Green: fresh herb green. Dark green: deep forest. Same status colours as Kitchen.
+const STATUS_LIGHT = { warningBox: '#FFF8E1', warningText: '#795548', errorBox: '#FFEBEE', errorText: '#C62828' };
+const STATUS_DARK = { warningBox: '#2E2514', warningText: '#F59E0B', errorBox: '#3B1B1B', errorText: '#EF4444' };
+const GREEN_LIGHT: ThemeColors = {
+  background: '#F4F8F5', card: '#FFFFFF', text: '#14261C', textSecondary: '#4D6155',
+  primary: '#047857', primaryLight: '#DDF1E6', onPrimary: '#FFFFFF',
+  highlight: '#C6F0D8', border: '#DCE7DF', borderStrong: '#6F8C7C', shadow: 'rgba(0, 0, 0, 0.05)', ...STATUS_LIGHT,
+};
+const GREEN_DARK: ThemeColors = {
+  background: '#0E1712', card: '#17241C', text: '#EAF3ED', textSecondary: '#9DB3A6',
+  primary: '#34D399', primaryLight: '#133626', onPrimary: '#052E1F',
+  highlight: '#1F5A3D', border: '#25382C', borderStrong: '#5C7A69', shadow: '#000000', ...STATUS_DARK,
+};
+const DARKGREEN_LIGHT: ThemeColors = {
+  background: '#F3F5F1', card: '#FFFFFF', text: '#16201A', textSecondary: '#4E5A52',
+  primary: '#14532D', primaryLight: '#E2EDE5', onPrimary: '#FFFFFF',
+  highlight: '#CFE3D4', border: '#DDE3DC', borderStrong: '#738276', shadow: 'rgba(0, 0, 0, 0.05)', ...STATUS_LIGHT,
+};
+const DARKGREEN_DARK: ThemeColors = {
+  background: '#08110C', card: '#122019', text: '#E8F0EA', textSecondary: '#9FB2A5',
+  primary: '#5FB383', primaryLight: '#173323', onPrimary: '#06200F',
+  highlight: '#24543A', border: '#1F3328', borderStrong: '#57705F', shadow: '#000000', ...STATUS_DARK,
+};
+
+/** Full palettes; the older schemes are still derived in getThemeColors below. */
+export const PALETTES: Partial<Record<ColorSchemeType, { light: ThemeColors; dark: ThemeColors }>> = {
+  kitchen: { light: KITCHEN_LIGHT, dark: KITCHEN_DARK },
+  green: { light: GREEN_LIGHT, dark: GREEN_DARK },
+  darkgreen: { light: DARKGREEN_LIGHT, dark: DARKGREEN_DARK },
+};
+
 interface ThemeContextProps {
   theme: ThemeColors;
   isDarkMode: boolean;
@@ -47,7 +78,8 @@ interface ThemeContextProps {
 }
 
 const getThemeColors = (isDark: boolean, scheme: ColorSchemeType): ThemeColors => {
-  if (scheme === 'kitchen') return isDark ? KITCHEN_DARK : KITCHEN_LIGHT;
+  const palette = PALETTES[scheme];
+  if (palette) return isDark ? palette.dark : palette.light;
 
   let primary = '#E05C2D';
   let primaryLight = '#FFF0EB';
