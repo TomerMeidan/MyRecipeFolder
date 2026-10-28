@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
-  Platform, ScrollView,
+  Platform, ScrollView, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
@@ -41,10 +41,8 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* The one highlighted element on this screen */}
-        <View style={styles.logo}>
-          <Ionicons name="restaurant" size={36} color={theme.text} />
-        </View>
+        {/* The app icon itself, so login and home screen show the same mark */}
+        <Image source={require('../../assets/icon.png')} style={styles.logo} accessibilityIgnoresInvertColors />
         <Text style={styles.title}>My Recipe Folder</Text>
         <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
 
@@ -116,10 +114,7 @@ function makeStyles(theme: ThemeColors) {
     root:   { flex: 1, backgroundColor: theme.background },
     scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, width: '100%', maxWidth: 440, alignSelf: 'center' },
 
-    logo: {
-      width: 72, height: 72, borderRadius: 18, alignSelf: 'center',
-      backgroundColor: theme.highlight, alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-    },
+    logo: { width: 80, height: 80, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
     title:    { fontSize: 30, fontWeight: '800', textAlign: 'center', color: theme.text, marginBottom: 4 },
     subtitle: { fontSize: 17, textAlign: 'center', color: theme.textSecondary, marginBottom: 28 },
 
