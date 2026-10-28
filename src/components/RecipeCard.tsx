@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Recipe } from '../types';
 import { totalTime } from '../utils/recipe';
+import { isRtlRecipe } from '../utils/rtl';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 
 interface Props {
@@ -15,83 +17,49 @@ export default function RecipeCard({ recipe, onPress }: Props) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <Pressable
+      // Recipe content follows the recipe's own language; rows below inherit it.
+      style={({ pressed }) => [styles.row, { direction: isRtlRecipe(recipe) ? 'rtl' : 'ltr' }, pressed && { backgroundColor: theme.card }]}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>{recipe.title}</Text>
-        {recipe.isFavorite && <Text style={styles.heart}>♥</Text>}
-      </View>
-
-      <View style={styles.pill}>
-        <Text style={styles.pillText}>{recipe.category}</Text>
+        <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
+        {recipe.isFavorite && (
+          <Ionicons name="heart" size={20} color={theme.primary} accessibilityLabel="Favorite" />
+        )}
       </View>
 
       <View style={styles.meta}>
-        <Text style={styles.metaText}>⏱ {minutes > 0 ? `${minutes} min` : '—'}</Text>
-        <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaText}>🍽 {recipe.servings} servings</Text>
-        <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaText}>{recipe.ingredients.length} ingredients</Text>
+        <View style={styles.tag}>
+          <Text style={styles.tagText}>{recipe.category}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Ionicons name="time-outline" size={17} color={theme.textSecondary} />
+          <Text style={styles.metaText}>{minutes > 0 ? `${minutes} min` : '—'}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Ionicons name="people-outline" size={17} color={theme.textSecondary} />
+          <Text style={styles.metaText}>{recipe.servings}</Text>
+        </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 function makeStyles(theme: ThemeColors) {
   return StyleSheet.create({
-    card: {
-      backgroundColor: theme.card,
-      borderRadius: 12,
-      padding: 16,
-      marginHorizontal: 16,
-      marginBottom: 12,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.07,
-      shadowRadius: 4,
-      elevation: 2,
+    // Flat list row with a hairline divider instead of a shadowed card.
+    row: {
+      minHeight: 72, paddingHorizontal: 16, paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: theme.border,
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 8,
-    },
-    title: {
-      fontSize: 17,
-      fontWeight: '600',
-      color: theme.text,
-      flex: 1,
-    },
-    heart: {
-      fontSize: 18,
-      color: theme.primary,
-      marginLeft: 8,
-    },
-    pill: {
-      alignSelf: 'flex-start',
-      backgroundColor: theme.primaryLight,
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-      marginBottom: 10,
-    },
-    pillText: {
-      fontSize: 12,
-      color: theme.primary,
-      fontWeight: '500',
-    },
-    meta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    metaText: {
-      fontSize: 13,
-      color: theme.textSecondary,
-    },
-    metaDot: {
-      fontSize: 13,
-      color: theme.border,
-      marginHorizontal: 6,
-    },
+    header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+    title: { flex: 1, fontSize: 19, lineHeight: 25, fontWeight: '800', color: theme.text, textAlign: 'auto' },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    tag: { backgroundColor: theme.card, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+    tagText: { fontSize: 13, fontWeight: '700', color: theme.textSecondary },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { fontSize: 15, fontWeight: '600', color: theme.textSecondary, fontVariant: ['tabular-nums'] },
   });
 }
