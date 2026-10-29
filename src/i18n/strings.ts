@@ -33,6 +33,9 @@ export const en = {
   fav_empty_title: 'No favorites yet',
   fav_empty_body: 'Tap the heart on a recipe to keep it here.',
   a11y_add_recipe: 'Add recipe',
+  load_error_title: "Couldn't load your recipes",
+  load_error_body: 'Check your internet connection and try again.',
+  try_again: 'Try again',
 
   // Recipe detail
   fact_servings: 'Servings',
@@ -238,6 +241,9 @@ export const he: Record<StringKey, string> = {
   fav_empty_title: 'אין עדיין מועדפים',
   fav_empty_body: 'הקישו על הלב במתכון כדי לשמור אותו כאן.',
   a11y_add_recipe: 'הוספת מתכון',
+  load_error_title: 'לא הצלחנו לטעון את המתכונים',
+  load_error_body: 'בדקו את החיבור לאינטרנט ונסו שוב.',
+  try_again: 'לנסות שוב',
 
   fact_servings: 'מנות',
   fact_prep: 'הכנה',

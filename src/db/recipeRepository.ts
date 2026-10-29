@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Recipe, Ingredient, RecipeStep, RecipeCategory, Nutrition } from '../types';
+import { Recipe, RecipeSummary, Ingredient, RecipeStep, RecipeCategory, Nutrition } from '../types';
 
 // ── Row shapes from Supabase ──────────────────────────────────────────────────
 
@@ -37,6 +37,8 @@ function toRecipe(row: RecipeRow): Recipe {
 }
 
 const RECIPE_SELECT = '*, ingredients(*), steps(*)';
+const LIST_COLUMNS = 'id, title, category, language, servings, prep_time, cook_time, is_favorite, '
+  + 'updated_at, created_at, calories_per_serving';
 
 const nutritionColumns = (r: Pick<Recipe, 'caloriesPerServing' | 'nutrition' | 'caloriesManual'>) => ({
   calories_per_serving: r.caloriesPerServing ?? null,
@@ -44,9 +46,9 @@ const nutritionColumns = (r: Pick<Recipe, 'caloriesPerServing' | 'nutrition' | '
   calories_manual: r.caloriesManual,
 });
 
-// PostgREST "column not found": the calories migration hasn't been run in Supabase yet.
-// shortcut: saves without calories until then; drop this fallback once every database has the columns.
-const isMissingColumn = (e: { code?: string } | null) => e?.code === 'PGRST204';
+// "Column not found" (PGRST204 on write, Postgres 42703 on select): the calories migration hasn't been run yet.
+// shortcut: saves and lists without calories until then; drop this fallback once every database has the columns.
+const isMissingColumn = (e: { code?: string } | null) => e?.code === 'PGRST204' || e?.code === '42703';
 
 async function writeRecipeRow(
   write: (cols: Record<string, unknown>) => PromiseLike<{ error: { code?: string } | null }>,
@@ -60,13 +62,23 @@ async function writeRecipeRow(
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function getAllRecipes(): Promise<Recipe[]> {
-  const { data, error } = await supabase
+/** Light list for Home and Search: no steps, nutrition breakdown or photo; ingredient names for search. */
+export async function getRecipeList(): Promise<RecipeSummary[]> {
+  const run = (cols: string) => supabase
     .from('recipes')
-    .select(RECIPE_SELECT)
+    .select(`${cols}, ingredients(name)`)
     .order('updated_at', { ascending: false });
+  let { data, error } = await run(LIST_COLUMNS);
+  if (isMissingColumn(error)) ({ data, error } = await run(LIST_COLUMNS.replace(', calories_per_serving', '')));
   if (error) throw error;
-  return (data ?? []).map(toRecipe);
+  return ((data ?? []) as unknown as RecipeRow[]).map((row) => ({
+    id: row.id, title: row.title, category: row.category as RecipeCategory,
+    language: row.language, servings: row.servings,
+    prepTime: row.prep_time, cookTime: row.cook_time, isFavorite: row.is_favorite,
+    caloriesPerServing: row.calories_per_serving ?? undefined,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+    ingredientNames: (row.ingredients ?? []).map((i) => i.name),
+  }));
 }
 
 export async function getRecipeById(id: string): Promise<Recipe | null> {
@@ -151,33 +163,4 @@ export async function toggleFavorite(id: string, isFavorite: boolean): Promise<v
     is_favorite: isFavorite, updated_at: Date.now(),
   }).eq('id', id);
   if (error) throw error;
-}
-
-export async function filterRecipes(query: string, category?: RecipeCategory): Promise<Recipe[]> {
-  const hasQuery    = query.trim().length > 0;
-  const hasCategory = !!category;
-
-  if (!hasQuery && !hasCategory) return getAllRecipes();
-
-  // Fetch all recipes with nested data, then filter client-side for ingredient name search
-  const { data, error } = await supabase
-    .from('recipes')
-    .select(RECIPE_SELECT)
-    .order('updated_at', { ascending: false });
-
-  if (error) throw error;
-  if (!data) return [];
-
-  return (data as RecipeRow[])
-    .filter((row) => {
-      const matchesCategory = !hasCategory || row.category === category;
-      if (!matchesCategory) return false;
-      if (!hasQuery) return true;
-      const q = query.trim().toLowerCase();
-      const inTitle    = row.title.toLowerCase().includes(q);
-      const inCategory = row.category.toLowerCase().includes(q);
-      const inIngredients = (row.ingredients ?? []).some((i) => i.name.toLowerCase().includes(q));
-      return inTitle || inCategory || inIngredients;
-    })
-    .map(toRecipe);
 }

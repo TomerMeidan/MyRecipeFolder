@@ -1,15 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, Pressable,
   StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Recipe, RootStackParamList } from '../types';
-import { getAllRecipes } from '../db/recipeRepository';
+import { RootStackParamList } from '../types';
+import { useRecipeList } from '../db/queries';
 import RecipeCard from '../components/RecipeCard';
+import LoadError from '../components/LoadError';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -19,27 +20,22 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavProp>();
   const { theme } = useTheme();
   const { t, isRTL } = useLanguage();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isPending, isError, refetch } = useRecipeList();
   const [favOnly, setFavOnly] = useState(false);
+  // Own flag so background refetches don't show the pull-to-refresh spinner.
+  const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      setLoading(true);
-      getAllRecipes().then((data) => {
-        if (active) {
-          setRecipes(data);
-          setLoading(false);
-        }
-      });
-      return () => { active = false; };
-    }, []),
-  );
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   const styles = makeStyles(theme);
 
-  if (loading) {
+  if (isError && !data) return <LoadError onRetry={() => refetch()} />;
+
+  if (isPending) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -47,6 +43,7 @@ export default function HomeScreen() {
     );
   }
 
+  const recipes = data ?? [];
   const displayed = favOnly ? recipes.filter((r) => r.isFavorite) : recipes;
 
   return (
@@ -61,6 +58,8 @@ export default function HomeScreen() {
           />
         )}
         contentContainerStyle={displayed.length === 0 ? styles.emptyContainer : styles.list}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.heading}>{t('home_title')}</Text>

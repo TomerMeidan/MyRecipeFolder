@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 interface AuthContextValue {
   isLoggedIn: boolean;
+  userId: string | null; // scopes cached recipe data to the signed-in user
   isLoading: boolean;
   login:  (email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
@@ -11,19 +12,20 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const isLoggedIn = userId !== null;
   const [isLoading,  setIsLoading]  = useState(true);
 
   useEffect(() => {
     // Check for an existing session on startup
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session);
+      setUserId(session?.user.id ?? null);
       setIsLoading(false);
     });
 
     // Keep state in sync with Supabase auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
+      setUserId(session?.user.id ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -40,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, userId, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

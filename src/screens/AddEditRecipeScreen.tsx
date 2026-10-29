@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StackActions } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Recipe, Ingredient, RecipeStep, RecipeCategory, Nutrition } from '../types';
-import { getRecipeById, insertRecipe, updateRecipe } from '../db/recipeRepository';
+import { useRecipe, useSaveRecipe } from '../db/queries';
 import { createRecipe, createIngredient, createStep } from '../utils/recipe';
 import { RECIPE_CATEGORIES } from '../utils/constants';
 import { isRtlText } from '../utils/rtl';
@@ -53,6 +53,7 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
       : null,
   );
   const [saving, setSaving] = useState(false);
+  const saveRecipe = useSaveRecipe();
   const [existingRecipe, setExistingRecipe] = useState<Recipe | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,29 +68,30 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
     navigation.setOptions({ title: t(isEditing ? 'title_edit_recipe' : prefill ? 'title_edit_scanned' : 'title_add_recipe') });
   }, [isEditing, prefill, t]);
 
+  // Reuses the recipe the detail screen already cached. Fills the form once, from the full recipe only,
+  // so a background refetch never overwrites what the user is typing.
+  const { data, isSuccess, isPlaceholderData } = useRecipe(recipeId);
   useEffect(() => {
-    if (!isEditing || !recipeId) return;
-    getRecipeById(recipeId).then((data) => {
-      if (data) {
-        setExistingRecipe(data);
-        setTitle(data.title);
-        setCategory(data.category);
-        setServings(String(data.servings));
-        setPrepTime(String(data.prepTime));
-        setCookTime(String(data.cookTime));
-        setIngredients(data.ingredients.length > 0 ? data.ingredients : [createIngredient()]);
-        setSteps(data.steps.length > 0 ? data.steps : [createStep(1)]);
-        setIsFavorite(data.isFavorite);
-        if (data.caloriesManual && data.caloriesPerServing !== undefined) {
-          setCalories(String(data.caloriesPerServing));
-        } else if (data.caloriesPerServing !== undefined) {
-          setEstimate({ caloriesPerServing: data.caloriesPerServing, nutrition: data.nutrition,
-            key: nutritionKey(data.ingredients, data.servings) });
-        }
+    if (!loading || !isSuccess || isPlaceholderData) return;
+    if (data) {
+      setExistingRecipe(data);
+      setTitle(data.title);
+      setCategory(data.category);
+      setServings(String(data.servings));
+      setPrepTime(String(data.prepTime));
+      setCookTime(String(data.cookTime));
+      setIngredients(data.ingredients.length > 0 ? data.ingredients : [createIngredient()]);
+      setSteps(data.steps.length > 0 ? data.steps : [createStep(1)]);
+      setIsFavorite(data.isFavorite);
+      if (data.caloriesManual && data.caloriesPerServing !== undefined) {
+        setCalories(String(data.caloriesPerServing));
+      } else if (data.caloriesPerServing !== undefined) {
+        setEstimate({ caloriesPerServing: data.caloriesPerServing, nutrition: data.nutrition,
+          key: nutritionKey(data.ingredients, data.servings) });
       }
-      setLoading(false);
-    });
-  }, [recipeId]);
+    }
+    setLoading(false);
+  }, [loading, isSuccess, isPlaceholderData, data]);
 
   // ── Ingredient helpers ────────────────────────────────────────────────────
 
@@ -181,12 +183,11 @@ export default function AddEditRecipeScreen({ route, navigation }: Props) {
         ...(isEditing && existingRecipe ? { id: existingRecipe.id, createdAt: existingRecipe.createdAt } : {}),
       });
 
+      await saveRecipe.mutateAsync({ recipe, isNew: !isEditing });
       if (isEditing) {
-        await updateRecipe(recipe);
         showToast(t('toast_updated'), 'success');
         setTimeout(() => navigation.goBack(), 1200);
       } else {
-        await insertRecipe(recipe);
         showToast(t('toast_saved'), 'success');
         if (prefill) {
           setTimeout(() => navigation.dispatch(StackActions.replace('ScanRecipe')), 1500);
