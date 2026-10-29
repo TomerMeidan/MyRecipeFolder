@@ -50,6 +50,12 @@ export interface Recipe {
   updatedAt: number;  // unix ms
 }
 
+/** A recipe as the list screens load it: no steps, nutrition or photo; ingredient names only. */
+export type RecipeSummary = Pick<Recipe,
+  'id' | 'title' | 'category' | 'language' | 'servings' | 'prepTime' | 'cookTime' |
+  'isFavorite' | 'caloriesPerServing' | 'createdAt' | 'updatedAt'
+> & { ingredientNames: string[] };
+
 export interface RecipePrefill {
   title?: string;
   category?: RecipeCategory;

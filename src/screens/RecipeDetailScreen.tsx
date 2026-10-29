@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Pressable, Modal,
   StyleSheet, Alert, ActivityIndicator, Platform,
@@ -6,10 +6,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Recipe } from '../types';
-import { getRecipeById, deleteRecipe, toggleFavorite, saveNutrition } from '../db/recipeRepository';
+import { RootStackParamList } from '../types';
+import { useRecipe, useDeleteRecipe, useToggleFavorite, useSaveNutrition } from '../db/queries';
 import { estimateNutrition } from '../utils/aiParser';
 import { totalTime } from '../utils/recipe';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
@@ -24,8 +23,10 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
   const { theme } = useTheme();
   const { t, isRTL } = useLanguage();
   const insets = useSafeAreaInsets();
-  const [recipe, setRecipe]         = useState<Recipe | null>(null);
-  const [loading, setLoading]       = useState(true);
+  const { data: recipe, isPending, isPlaceholderData } = useRecipe(recipeId);
+  const deleteMutation = useDeleteRecipe();
+  const favoriteMutation = useToggleFavorite();
+  const nutritionMutation = useSaveNutrition();
   const [deleting, setDeleting]     = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   // Ticked-off ingredients while cooking. Screen-local only, never saved.
@@ -40,19 +41,9 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     return next;
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      getRecipeById(recipeId).then((data) => {
-        if (active) {
-          setRecipe(data);
-          setLoading(false);
-          if (data) navigation.setOptions({ title: data.title });
-        }
-      });
-      return () => { active = false; };
-    }, [recipeId]),
-  );
+  useEffect(() => {
+    if (recipe?.title) navigation.setOptions({ title: recipe.title });
+  }, [recipe?.title]);
 
   const handleDelete = () => {
     // Alert.alert doesn't work reliably on web — use a custom modal instead
@@ -70,7 +61,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     setConfirmVisible(false);
     setDeleting(true);
     try {
-      await deleteRecipe(recipeId);
+      await deleteMutation.mutateAsync(recipeId);
       navigation.goBack();
     } catch (e: any) {
       setDeleting(false);
@@ -80,10 +71,9 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const handleToggleFavorite = async () => {
+  const handleToggleFavorite = () => {
     if (!recipe) return;
-    await toggleFavorite(recipe.id, !recipe.isFavorite);
-    setRecipe({ ...recipe, isFavorite: !recipe.isFavorite });
+    favoriteMutation.mutate({ id: recipe.id, isFavorite: !recipe.isFavorite });
   };
 
   const handleEstimate = async () => {
@@ -92,8 +82,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
     setCalcError(null);
     try {
       const { caloriesPerServing, nutrition } = await estimateNutrition(recipe.ingredients, recipe.servings);
-      await saveNutrition(recipe.id, caloriesPerServing, nutrition);
-      setRecipe({ ...recipe, caloriesPerServing, nutrition, caloriesManual: false });
+      await nutritionMutation.mutateAsync({ id: recipe.id, caloriesPerServing, nutrition });
     } catch (e: any) {
       setCalcError(t('calc_calories_failed', { error: e?.message ?? '' }));
     } finally {
@@ -103,7 +92,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
 
   const styles = makeStyles(theme, insets.bottom);
 
-  if (loading) {
+  if (isPending) {
     return <View style={styles.center}><ActivityIndicator size="large" color={theme.primary} /></View>;
   }
 
@@ -166,6 +155,11 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
             </React.Fragment>
           ))}
         </View>
+
+        {/* Until the full recipe arrives, the list entry shows the header and facts only. */}
+        {isPlaceholderData ? (
+          <ActivityIndicator style={styles.sectionsLoading} size="large" color={theme.primary} />
+        ) : (<>
 
         {/* Calories */}
         <View style={styles.calories}>
@@ -301,6 +295,7 @@ export default function RecipeDetailScreen({ route, navigation }: Props) {
           ))
         }
         </View>
+        </>)}
 
       </ScrollView>
 
@@ -410,6 +405,7 @@ function makeStyles(theme: ThemeColors, bottomInset: number) {
     breakdownKcal: { fontSize: 15, fontWeight: '700', color: theme.text, fontVariant: ['tabular-nums'] },
     breakdownTotal: { fontSize: 15, fontWeight: '700', color: theme.textSecondary, marginTop: 6, fontVariant: ['tabular-nums'] },
 
+    sectionsLoading: { marginTop: 40 },
     sectionTitle: { fontSize: 22, fontWeight: '800', color: theme.text, marginTop: 28, marginBottom: 4 },
     stepsTitle: { marginTop: 32, marginBottom: 8 },
     emptySection: { fontSize: 17, color: theme.textSecondary, paddingVertical: 12 },

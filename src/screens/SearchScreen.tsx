@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Recipe, RecipeCategory, RootStackParamList } from '../types';
-import { filterRecipes } from '../db/recipeRepository';
+import { RecipeCategory, RootStackParamList } from '../types';
+import { useRecipeList } from '../db/queries';
 import { RECIPE_CATEGORIES } from '../utils/constants';
 import RecipeCard from '../components/RecipeCard';
+import LoadError from '../components/LoadError';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { categoryKey } from '../i18n/strings';
@@ -25,34 +26,18 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | null>(null);
   const [favOnly, setFavOnly] = useState(false);
-  const [results, setResults] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { data, isPending, isError, refetch } = useRecipeList();
 
-  const runSearch = useCallback(
-    async (q: string, cat: RecipeCategory | null) => {
-      setLoading(true);
-      const data = await filterRecipes(q, cat ?? undefined);
-      setResults(data);
-      setSearched(true);
-      setLoading(false);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      runSearch(query, selectedCategory);
-    }, query.length > 0 ? 300 : 0);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, selectedCategory, runSearch]);
-
-  useFocusEffect(
-    useCallback(() => {
-      runSearch(query, selectedCategory);
-    }, []),
+  // Filters the cached list in memory: no request per keystroke or chip tap.
+  const q = query.trim().toLowerCase();
+  const displayed = (data ?? []).filter((r) =>
+    (!selectedCategory || r.category === selectedCategory)
+    && (!favOnly || r.isFavorite)
+    && (!q
+      || r.title.toLowerCase().includes(q)
+      || r.category.toLowerCase().includes(q)
+      || t(categoryKey(r.category)).toLowerCase().includes(q)
+      || r.ingredientNames.some((name) => name.toLowerCase().includes(q))),
   );
 
   const handleCategoryPress = (cat: RecipeCategory) => {
@@ -60,8 +45,6 @@ export default function SearchScreen() {
   };
 
   const clearQuery = () => setQuery('');
-
-  const displayed = favOnly ? results.filter((r) => r.isFavorite) : results;
 
   const styles = makeStyles(theme);
 
@@ -125,7 +108,9 @@ export default function SearchScreen() {
       </View>
 
       {/* Results */}
-      {loading ? (
+      {isError && !data ? (
+        <LoadError onRetry={() => refetch()} />
+      ) : isPending ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
@@ -141,22 +126,20 @@ export default function SearchScreen() {
           )}
           contentContainerStyle={displayed.length === 0 ? styles.emptyContainer : styles.list}
           ListHeaderComponent={
-            searched && !loading && displayed.length > 0 ? (
+            displayed.length > 0 ? (
               <Text style={styles.resultCount}>
                 {tp('recipes_count', displayed.length)}
               </Text>
             ) : null
           }
           ListEmptyComponent={
-            searched ? (
-              <View style={styles.emptyInner}>
-                <Ionicons name="search-outline" size={44} color={theme.textSecondary} />
-                <Text style={styles.emptyTitle}>{t('search_empty_title')}</Text>
-                <Text style={styles.emptySubtitle}>
-                  {t('search_empty_body')}
-                </Text>
-              </View>
-            ) : null
+            <View style={styles.emptyInner}>
+              <Ionicons name="search-outline" size={44} color={theme.textSecondary} />
+              <Text style={styles.emptyTitle}>{t('search_empty_title')}</Text>
+              <Text style={styles.emptySubtitle}>
+                {t('search_empty_body')}
+              </Text>
+            </View>
           }
           keyboardShouldPersistTaps="handled"
         />

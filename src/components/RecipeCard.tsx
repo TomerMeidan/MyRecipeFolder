@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Recipe } from '../types';
+import { RecipeSummary } from '../types';
 import { totalTime } from '../utils/recipe';
 import { isRtlRecipe } from '../utils/rtl';
 import { useTheme, ThemeColors } from '../theme/ThemeContext';
@@ -9,7 +9,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { categoryKey } from '../i18n/strings';
 
 interface Props {
-  recipe: Recipe;
+  recipe: RecipeSummary;
   onPress: () => void;
 }
 
