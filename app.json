@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MyRecipeFolder",
-    "slug": "MyRecipeFolder",
+    "name": "OnlyRecipes",
+    "slug": "OnlyRecipes",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,8 +30,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow MyRecipeFolder to access your photos to scan recipes.",
-          "cameraPermission": "Allow MyRecipeFolder to use the camera to scan recipe pages."
+          "photosPermission": "Allow OnlyRecipes to access your photos to scan recipes.",
+          "cameraPermission": "Allow OnlyRecipes to use the camera to scan recipe pages."
         }
       ],
       "expo-secure-store",

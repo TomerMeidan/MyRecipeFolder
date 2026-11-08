@@ -1,8 +1,8 @@
-# MyRecipeFolder 🍳
+# OnlyRecipes 🍳
 
 A cross-platform recipe management app built with **React Native + Expo**. Save, search, and scan recipes — including handwritten ones in Hebrew or any language — powered by Gemini AI, with cloud sync via Supabase.
 
-**Live:** [my-recipe-folder.vercel.app](https://my-recipe-folder.vercel.app)
+**Live:** [onlyrecipes-app.vercel.app](https://onlyrecipes-app.vercel.app)
 
 ---
 
@@ -48,8 +48,8 @@ A cross-platform recipe management app built with **React Native + Expo**. Save,
 ### Installation
 
 ```bash
-git clone https://github.com/TomerMeidan/MyRecipeFolder.git
-cd MyRecipeFolder
+git clone https://github.com/TomerMeidan/OnlyRecipes.git
+cd OnlyRecipes
 npm install
 ```
 

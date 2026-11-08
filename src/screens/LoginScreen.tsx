@@ -43,7 +43,7 @@ export default function LoginScreen() {
 
         {/* The app icon itself, so login and home screen show the same mark */}
         <Image source={require('../../assets/icon.png')} style={styles.logo} accessibilityIgnoresInvertColors />
-        <Text style={styles.title}>My Recipe Folder</Text>
+        <Text style={styles.title}>OnlyRecipes</Text>
         <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
 
         <Text style={styles.label}>{t('email')}</Text>
