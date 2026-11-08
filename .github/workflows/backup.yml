@@ -15,6 +15,8 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Holds the secrets, restricted to main, so a workflow edited on another branch can't read them.
+    environment: backup
     env:
       BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}

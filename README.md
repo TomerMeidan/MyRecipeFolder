@@ -154,7 +154,7 @@ The `vercel.json` config is already included — no additional build configurati
 
 ## Backups
 
-`.github/workflows/backup.yml` dumps the `public` schema every night at 00:30 UTC and uploads it to the private R2 bucket `myrecipefolder-backups`. It signs in as the read-only role from `scripts/backup-db-user.sql` and needs four GitHub secrets: `BACKUP_DATABASE_URL` (Supabase **session pooler**, port 5432, user `myrecipe_backup.<project-ref>`), `R2_ACCOUNT_ID`, `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`.
+`.github/workflows/backup.yml` dumps the `public` schema every night at 00:30 UTC and uploads it to the private R2 bucket `myrecipefolder-backups`. It signs in as the read-only role from `scripts/backup-db-user.sql` and needs four secrets in the GitHub environment `backup` (deployment branches limited to `main`): `BACKUP_DATABASE_URL` (Supabase **session pooler**, port 5432, user `myrecipe_backup.<project-ref>`), `R2_ACCOUNT_ID`, `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`.
 
 To restore, download a `.dump` file from R2 and load it into an **empty** scratch database first:
 
