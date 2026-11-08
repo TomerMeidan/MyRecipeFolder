@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────
--- MyRecipeFolder — Supabase schema
+-- OnlyRecipes — Supabase schema
 -- Run this in: Supabase dashboard → SQL Editor → New query → Run
 -- ─────────────────────────────────────────────────────────────────
 
